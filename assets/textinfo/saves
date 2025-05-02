@@ -1,0 +1,25 @@
+let user ; name ; key;
+
+let send = ()=>{
+    user  =  document.getElementById('user').value;
+    name  =  document.getElementById('name').value;
+    key  =  document.getElementById('key').value;
+    if(user == '' || name == '' || key == ''){
+        alert('Please fill all the fields');
+        return; 
+    }
+    alert(user  , key  , name );
+    let data = {
+        user : user,
+        name : name,
+        key : key
+    }
+    console.log(data);
+    fetch('http://127.0.0.1:3000/users' , {
+        method : 'POST',
+        headers : {
+            'Content-Type' : 'application/json'
+        },
+        body : JSON.stringify(data)
+    })
+}

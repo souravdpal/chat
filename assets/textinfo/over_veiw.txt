@@ -1,0 +1,5 @@
+1. first = login page data no gmail need we use jsons username  name  storage 
+2. username will be one but name can be diffrent for everyone 
+3. app will able chat and store data in jsons
+
+

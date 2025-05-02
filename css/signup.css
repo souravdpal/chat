@@ -1,0 +1,89 @@
+/* signup.css */
+
+/* Basic body styling */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f0f4f8;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+/* Styling for the container div */
+div {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+}
+
+/* Styling for the form */
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Styling for input fields */
+input[type="text"], input[type="password"] {
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    font-size: 16px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 15px;
+    outline: none;
+}
+
+/* Styling for the register button */
+input[type="button"] {
+    background-color: #4CAF50;
+    color: white;
+    padding: 12px;
+    border-radius: 6px;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    width: 100%;
+    transition: background-color 0.3s;
+}
+
+/* Button hover effect */
+input[type="button"]:hover {
+    background-color: #45a049;
+}
+
+/* Styling for the placeholder text */
+input::placeholder {
+    color: #b3b3b3;
+}
+
+/* Styling for the "already have an account?" link */
+a {
+    text-align: center;
+    display: block;
+    margin-top: 10px;
+    color: #007BFF;
+    text-decoration: none;
+}
+
+/* Hover effect for the link */
+a:hover {
+    text-decoration: underline;
+}
+
+/* For smaller screen sizes */
+@media (max-width: 600px) {
+    div {
+        padding: 16px;
+        width: 90%;
+    }
+    input[type="text"], input[type="password"], input[type="button"] {
+        padding: 10px;
+    }
+}
