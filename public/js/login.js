@@ -1,8 +1,7 @@
-let info  = () => {
-    let user_log = document.getElementById('user').value.trim();
-    let key = document.getElementById('key').value.trim();
+let info = () => {
+    const user_log = document.getElementById('user').value.trim();
+    const key = document.getElementById('key').value.trim();
 
-    // Fix: use user_log instead of undefined `user`
     if (user_log === "" || key === "") {
         return alert("You can't leave fields empty! Please fill in the details.");
     }
@@ -18,12 +17,14 @@ let info  = () => {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify(cred)
-    })
-    .then(async (response) => {
-        if (response.ok) {
+    }).then(async response => {
+        const data = await response.text();
+    
+
+        if (data === 'ok') {
             try {
-                const data = await fetch('/get_user');
-                const json1 = await data.json();
+                const userData = await fetch('/get_user');  // ✅ Await here
+                const json1 = await userData.json();        // ✅ Await .json()
                 const checker = json1.find(item => item.user === user_log);
                 const name = checker?.name || user_log;
 
@@ -35,12 +36,7 @@ let info  = () => {
                 console.error(err);
             }
         } else {
-            const text = await response.text(); // Show backend message
-            alert(`Login failed: ${text}`);
+            alert(`Login failed: ${data.message || "Unknown error"}`);
         }
     })
-    .catch(err => {
-        console.error("Fetch error:", err);
-        alert("An error occurred. Try again!");
-    });
 }

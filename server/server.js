@@ -6,6 +6,7 @@ const path = require('path');
 const bcrypt = require('bcrypt');
 const round = 10;
 const port = process.env.PORT || 3000;
+const axios = require('axios');
 
 app.use(cors());
 app.use(exp.json());
@@ -35,7 +36,7 @@ app.post('/user', async (req, res) => {
         };
 
         const path1 = path.join(__dirname, '..', 'data', 'user.json');
-         let old  = [];
+        let old = [];
 
         // Check if the user.json file exists
         if (fs.existsSync(path1)) {
@@ -70,20 +71,18 @@ app.post('/user', async (req, res) => {
     }
 });
 
-app.get('/get_user' , (req,res)=>{
-    const filepath = path.join(__dirname , '..' ,'data' ,'user.json' )
-    fs.readFileSync(filepath , 'utf8' ,(err , data)=>{
-        try{
-            const passe_data = JSON.parse(data);
-            res.json(passe_data);
-        }catch(e){
-            res.status(500).send('error getting user data')
-        }
-    })
-
-
+app.get('/get_user', (req, res) => {
+    const filepath = path.join(__dirname, '..', 'data', 'user.json')
+    try {
+        const data = fs.readFileSync(filepath, 'utf8');
+        const parsed = JSON.parse(data);
+        res.json(parsed);
+    } catch (err) {
+        res.status(500).send('Error getting user data');
+    }
 
 })
+
 
 app.post('/cred', async (req, res) => {
     const { user, key } = req.body;
@@ -102,17 +101,53 @@ app.post('/cred', async (req, res) => {
     }
 
     const foundUser = users.find(item => item.user === user);
+
     if (!foundUser) {
         return res.status(400).send('Incorrect ID or password!');
     }
 
-    const match = await bcrypt.compare(key, foundUser.key);
-    if (match) {
-        res.status(200).send('Matched! Database verified.');
+    let credmess = await bcrypt.compare(key, foundUser.key)
+
+
+    console.log(credmess)
+    if (!credmess) {
+        console.log('not')
+        res.status(400).send('error incorrect passowrd or id ')
     } else {
-        res.status(400).send('Incorrect ID or password!');
+        res.status(200).send('ok')
+
     }
 });
+
+
+
+
+app.post('/msg', async (req, res) => {
+  const { msg } = req.body;
+  console.log(`user:${msg}`)
+
+  try {
+    const response = await axios.post('http://localhost:5000/chat', {
+      prompt: msg,
+      model: 'deepseek-r1:1.5b'
+    });
+
+    const aiReply = response.data.reply;
+    console.log(`AI : ${aiReply}`)
+    res.json({ reply: `AI: ${aiReply}` });
+
+  } catch (error) {
+    console.error("Error from Python server:", error.response?.data || error.message);
+    res.status(500).json({ error: "Failed to get reply from AI." });
+  }
+});
+
+app.listen(3000, () => console.log('Node.js server running on port 3000'));
+
+
+
+
+
 
 
 app.listen(port, () => {
