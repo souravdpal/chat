@@ -145,6 +145,6 @@ MIT License – free to use and modify.
 
 ## 👤 Author
 
-**Sourav D. Pal**
+**Sourav **
 Learning MERN stack with a focus on React and Node.js.
 Built this project to understand authentication, backend APIs, and password hashing.
