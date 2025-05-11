@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const round = 10;
-const port = process.eve.PORT || 3000;
+const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(exp.json());
@@ -35,7 +35,7 @@ app.post('/user', async (req, res) => {
         };
 
         const path1 = path.join(__dirname, '..', 'data', 'user.json');
-        let old = [];
+         let old  = [];
 
         // Check if the user.json file exists
         if (fs.existsSync(path1)) {
@@ -54,7 +54,7 @@ app.post('/user', async (req, res) => {
 
         // Check if the user already exists
         if (old.some(item => item.user === user)) {
-            return res.status(400).send("User already exists");
+            return res.status(400).type('text').send("User already exists");
         }
 
         // Add the new user to the array
@@ -69,6 +69,51 @@ app.post('/user', async (req, res) => {
         res.status(500).send('Error hashing password or writing data.');
     }
 });
+
+app.get('/get_user' , (req,res)=>{
+    const filepath = path.join(__dirname , '..' ,'data' ,'user.json' )
+    fs.readFileSync(filepath , 'utf8' ,(err , data)=>{
+        try{
+            const passe_data = JSON.parse(data);
+            res.json(passe_data);
+        }catch(e){
+            res.status(500).send('error getting user data')
+        }
+    })
+
+
+
+})
+
+app.post('/cred', async (req, res) => {
+    const { user, key } = req.body;
+    const path1 = path.join(__dirname, '..', 'data', 'user.json');
+
+    if (!fs.existsSync(path1)) {
+        return res.status(404).send('No users found.');
+    }
+
+    const readData = fs.readFileSync(path1, 'utf-8');
+    let users;
+    try {
+        users = JSON.parse(readData);
+    } catch (err) {
+        return res.status(500).send('Error reading user data.');
+    }
+
+    const foundUser = users.find(item => item.user === user);
+    if (!foundUser) {
+        return res.status(400).send('Incorrect ID or password!');
+    }
+
+    const match = await bcrypt.compare(key, foundUser.key);
+    if (match) {
+        res.status(200).send('Matched! Database verified.');
+    } else {
+        res.status(400).send('Incorrect ID or password!');
+    }
+});
+
 
 app.listen(port, () => {
     console.log(`Server is running on port http://localhost:${port}`);

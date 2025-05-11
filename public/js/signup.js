@@ -26,9 +26,8 @@ document.getElementById("btn").addEventListener("click", () => {
             if (response.ok) {
                 alert("User registered successfully");
                 window.location.href = "login.html"
-            } else {
-                alert(response)
-                alert("Error: " + response.statusText);
+            } else if(!response.ok){
+                alert("Error: user maybe already exist !");
             }
         })
         .catch(error => {
