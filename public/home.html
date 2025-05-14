@@ -288,6 +288,8 @@
 
     <!-- Chat body -->
     <div class="chat-messages" id="here">
+   
+    
 
       <div class="notification" style="
   background-color: var(--notification-bg);
@@ -303,7 +305,22 @@
   display: inline-block;
 "><span id="join"></span></div>
     </div>
+ <div class="chat-typing">
+  <div class="bubble"><span id="type"></span></div>
+</div>
+<style>
+.chat-typing {
+  display: flex;
+  align-items: flex-end;
+  margin: 12px;
+}
 
+
+/* Optional: Improve visibility on very light backgrounds */
+body {
+  background: #202020; /* test background; remove/change as needed */
+}
+</style>
     <!-- Input bar -->
     <div class="chat-input">
       <input type="text" id="take" placeholder="Type a message..." />

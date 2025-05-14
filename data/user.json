@@ -1,42 +1,7 @@
 [
   {
-    "user": "shruti23",
-    "name": "shruti",
-    "key": "$2b$10$b1y5wWD6HiUUTfsSAhKU1.Z77zhisq6kHP623jYAknzgRrWtoCCR6"
-  },
-  {
-    "user": "shruti232",
-    "name": "shruti",
-    "key": "$2b$10$nAxuPouhcFhdacE6MgzdFeBcRMH9jWcCoa0ogZkCL7Z8hbYfD586O"
-  },
-  {
     "user": "sourav",
     "name": "sourav",
-    "key": "$2b$10$PuQ9QSMpYRuvMDHPOudMn.BLJ66BSOYpxAh.sngXICIM/7UQP9vL."
-  },
-  {
-    "user": "testuser",
-    "name": "testme",
-    "key": "$2b$10$N991GoPMGD0rOIZo4qbJ0up9GTvHr.N3qq630G5HYeLHni8bWmA0W"
-  },
-  {
-    "user": "souravdp",
-    "name": "sourav",
-    "key": "$2b$10$GNFiKMuk0A50ZMFsMjChJ...r2s/f73mUHVDYLwvchec5tw6AcV0K"
-  },
-  {
-    "user": "Shruti",
-    "name": "Shruthi",
-    "key": "$2b$10$alpTJ.bFZYs6wkNLbdOHcewn1UYFAqWgJMUzhwbDXcZis6pjdeFr."
-  },
-  {
-    "user": "Shrutilove",
-    "name": "Shruthi",
-    "key": "$2b$10$tOumPC6sNkqusuQHDQ9FMuiBNXEJ6suYTFFV5itsdIs29LhWB09ri"
-  },
-  {
-    "user": "Shrutilovesourav",
-    "name": "Shruthi",
-    "key": "$2b$10$xhf0nmrb2KK6rx.uDy3ALeN0Je5.95gX.bP8Hkikw.AHmnByDCld6"
+    "key": "$2b$10$7RiHGY0YqH4rXXXEhdVxZ.3vLVStpBCForFweFEe6R55oPkSDAeeu"
   }
 ]
