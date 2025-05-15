@@ -1,4 +1,4 @@
-document.getElementById("btn").addEventListener("click", () => {
+document.getElementById("btn").addEventListener("click", async() => {
     let user = document.getElementById("user").value.trim();
     let name = document.getElementById('name').value.trim();
     let key = document.getElementById('key').value.trim();
@@ -24,8 +24,12 @@ document.getElementById("btn").addEventListener("click", () => {
         })
         .then(response => {
             if (response.ok) {
-                alert("User registered successfully");
-                window.location.href = "login.html"
+                return response.text().then(data=>{
+                    alert(data)
+                     window.location.href = "login.html"
+
+                })
+               
             } else if(!response.ok){
                 alert("Error: user maybe already exist !");
             }
