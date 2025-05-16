@@ -20,6 +20,11 @@
     "fs": "^0.0.1-security",
     "mongoose": "^8.14.3",
     "nodemon": "^3.1.10",
+<<<<<<< HEAD
     "path": "^0.12.7"
+=======
+    "path": "^0.12.7",
+    "socket.io": "^4.8.1"
+>>>>>>> 5fe94b9 (adding we socket.ignored)
   }
 }
