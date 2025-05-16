@@ -7,7 +7,11 @@ This is a Node.js-based web application for user registration, login, and chatti
 ## 🌐 Features
 
 * ✅ User signup and login with bcrypt-hashed passwords.
+<<<<<<< HEAD
 * ✅ Data stored locally in a JSON file (`user.json`).
+=======
+* ✅ Data stored locally in a JSON file (`mongo server`).
+>>>>>>> 5fe94b9 (adding we socket.ignored)
 * ✅ Public frontend served with HTML (`signup.html`).
 * ✅ Integration with a local Python server to send and receive AI-generated replies.
 * ✅ Error handling and status messaging.

@@ -7,8 +7,13 @@ let info = () => {
     }
 
     const cred = {
+<<<<<<< HEAD
         user: user_log,
         key: key
+=======
+        user_log: user_log,
+        key_log: key
+>>>>>>> 5fe94b9 (adding we socket.ignored)
     };
 
     fetch('/cred', {
@@ -21,6 +26,7 @@ let info = () => {
         const data = await response.text();
     
 
+<<<<<<< HEAD
         if (data === 'ok') {
             try {
                 const userData = await fetch('/get_user');  // ✅ Await here
@@ -28,6 +34,11 @@ let info = () => {
                 const checker = json1.find(item => item.user === user_log);
                 const name = checker?.name || user_log;
 
+=======
+        if (response) {
+            try {
+                let name =  data 
+>>>>>>> 5fe94b9 (adding we socket.ignored)
                 localStorage.setItem('name', name);
                 alert(`${name}, welcome!`);
                 window.location.href = "home.html";
@@ -35,7 +46,11 @@ let info = () => {
                 alert("Error fetching user data.");
                 console.error(err);
             }
+<<<<<<< HEAD
         } else {
+=======
+        } else if (!response) {
+>>>>>>> 5fe94b9 (adding we socket.ignored)
             alert(`Login failed: ${data.message || "Unknown error"}`);
         }
     })
