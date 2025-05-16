@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const round = 10;
-const port = process.env.PORT || 3000 || 5500;
+const port = process.env.PORT || 5500;
 const axios = require('axios');
 const mongo = require('mongoose');
 require('dotenv').config();
