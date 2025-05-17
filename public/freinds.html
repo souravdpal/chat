@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Friends List</title>
+  <style>
+    /* Reset */
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #121212;
+      color: #eee;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #f0f0f0;
+    }
+
+    /* Container for inputs */
+    .input-container {
+      max-width: 450px;
+      margin: 0 auto 30px auto;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    input[type="text"], input[type="search"] {
+      flex: 1 1 200px;
+      padding: 12px 16px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: none;
+      background: #333;
+      color: #eee;
+      outline: none;
+      transition: background-color 0.3s ease;
+    }
+    input[type="text"]:focus, input[type="search"]:focus {
+      background: #444;
+    }
+
+    button#add-btn {
+      padding: 12px 20px;
+      background: #4caf50;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      flex-shrink: 0;
+    }
+    button#add-btn:hover {
+      background: #45a049;
+    }
+
+    /* Friends list container */
+    .friends-list {
+      max-width: 450px;
+      margin: 0 auto;
+      background: #1e1e1e;
+      border-radius: 12px;
+      padding: 15px;
+      box-shadow: 0 0 12px rgba(0,0,0,0.8);
+      min-height: 300px;
+    }
+
+    /* Single friend item */
+    .friend {
+      display: flex;
+      align-items: center;
+      padding: 12px 15px;
+      border-bottom: 1px solid #333;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      user-select: none;
+    }
+    .friend:last-child {
+      margin-bottom: 0;
+      border-bottom: none;
+    }
+    .friend:hover {
+      background: #333;
+    }
+
+    /* Avatar circle with initials */
+    .avatar {
+      width: 40px;
+      height: 40px;
+      background: #555;
+      color: #eee;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-weight: 700;
+      font-size: 18px;
+      margin-right: 15px;
+      flex-shrink: 0;
+      user-select: none;
+      box-shadow: 0 0 5px rgba(0,0,0,0.6);
+    }
+
+    /* Status dot */
+    .status-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      margin-left: auto;
+      box-shadow: 0 0 6px rgba(0,0,0,0.7);
+      background: gray;
+      transition: background-color 0.3s ease;
+    }
+    .status-online {
+      background: #4caf50;
+      box-shadow: 0 0 8px #4caf50;
+    }
+    .status-offline {
+      background: #888;
+      box-shadow: none;
+    }
+
+    /* Empty list message */
+    .empty-message {
+      text-align: center;
+      color: #888;
+      font-style: italic;
+      padding: 40px 0;
+    }
+
+    /* Responsive for smaller devices */
+    @media (max-width: 480px) {
+      .input-container {
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      button#add-btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Friends List</h1>
+
+  <div class="input-container">
+    <input type="text" id="add" placeholder="Add friend username..." autocomplete="off" />
+    <button id="add-btn" aria-label="Add Friend">Add</button>
+  </div>
+
+  <div class="input-container">
+    <input type="search" id="search" placeholder="Search friends..." autocomplete="off" />
+  </div>
+
+  <div class="friends-list" id="list" style="width: 1000px;">
+    <p class="empty-message">No friends yet. Add some!</p>
+  </div>
+
+  <script defer src="/js/f.js"></script>
+</body>
+</html>
