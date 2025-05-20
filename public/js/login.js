@@ -18,12 +18,13 @@ let info = () => {
         },
         body: JSON.stringify(cred)
     }).then(async response => {
-        const data = await response.text();
+        const data = await response.json();
     
         if (response.ok) {
             try {
-                let name = data;
+                let {name , user} = data;
                 localStorage.setItem('name', name);
+                localStorage.setItem('user' , user)
                 alert(`${name}, welcome!`);
                 window.location.href = "home.html";
             } catch (err) {

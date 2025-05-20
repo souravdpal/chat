@@ -5,6 +5,8 @@ curl -fsSL https://ollama.com/install.sh | sh
 sudo apt install node 
 npm init -y 
 npm install
+ollama run deepseek-r1:1.5b 
+ollama run  gemma3:4b
 
 # Prompt user for system type
 echo "Enter your system type:"
@@ -43,3 +45,4 @@ echo ""
 echo "💡 DeepSeek is best for most tasks."
 echo "🧠 Mistral is great for chit-chat."
 echo "🔥 Gemma is the latest and can do text-gen, but image-gen not yet supported."
+echo "more features addes nowdays   you will download  basic gemma 3 deafault and add another installed models in ai.py list in server to validate the models and then if you not want chnage manually it will without anything will ge gemma but want chnage instant model with response enter  /(model name you downloded)(prompt for that specfic model)  

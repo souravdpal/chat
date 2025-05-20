@@ -1,0 +1,23 @@
+{
+  "name": "chat",
+  "version": "1.0.0",
+  "description": "This is a Node.js-based web application for user registration, login, and chatting with a locally hosted AI model (e.g., DeepSeek). It supports secure user handling via bcrypt hashing and communicates with a Python server for AI responses.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/souravdpal/chat.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/souravdpal/chat/issues"
+  },
+  "homepage": "https://github.com/souravdpal/chat#readme",
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}

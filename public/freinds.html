@@ -21,6 +21,106 @@
       min-height: 100vh;
     }
 
+    /* Navbar styling */
+    .navbar {
+      background-color: #1e1e1e;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #eee;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.8);
+      margin-bottom: 20px;
+    }
+
+    .navbar .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #f0f0f0;
+    }
+
+    .nav-links {
+      list-style: none;
+      display: flex;
+      gap: 20px;
+    }
+
+    .nav-links li a {
+      color: #eee;
+      text-decoration: none;
+      font-size: 1rem;
+      transition: color 0.3s ease;
+    }
+
+    .nav-links li a:hover {
+      color: #4caf50;
+    }
+
+    .hamburger {
+      display: none;
+      flex-direction: column;
+      cursor: pointer;
+    }
+
+    .hamburger span {
+      width: 25px;
+      height: 3px;
+      background-color: #eee;
+      margin: 2px 0;
+      transition: all 0.3s ease;
+    }
+
+    #menu-toggle {
+      display: none;
+    }
+
+    /* Mobile Navbar */
+    @media screen and (max-width: 768px) {
+      .hamburger {
+        display: flex;
+      }
+
+      .nav-links {
+        display: none;
+        width: 100%;
+        position: absolute;
+        top: 60px;
+        left: 0;
+        background-color: #1e1e1e;
+        flex-direction: column;
+        padding: 20px;
+        text-align: center;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.8);
+        z-index: 1000;
+      }
+
+      .nav-links li {
+        margin: 10px 0;
+      }
+
+      #menu-toggle:checked ~ .nav-links {
+        display: flex;
+      }
+
+      #menu-toggle:checked ~ .hamburger span:nth-child(1) {
+        transform: rotate(45deg) translate(5px, 5px);
+      }
+
+      #menu-toggle:checked ~ .hamburger span:nth-child(2) {
+        opacity: 0;
+      }
+
+      #menu-toggle:checked ~ .hamburger span:nth-child(3) {
+        transform: rotate(-45deg) translate(7px, -7px);
+      }
+    }
+
+    @media screen and (min-width: 769px) {
+      .nav-links {
+        display: flex !important;
+      }
+    }
+
     h1 {
       text-align: center;
       margin-bottom: 20px;
@@ -159,6 +259,24 @@
   </style>
 </head>
 <body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="logo">ChatApp</div>
+    <input type="checkbox" id="menu-toggle">
+    <label for="menu-toggle" class="hamburger">
+      <span></span>
+      <span></span>
+      <span></span>
+    </label>
+      <ul class="nav-links">
+        <li><a href="home.html">Home</a></li>
+        <li><a href="world.html">World-Chats</a></li>
+        <li><a href="about me ">About</a></li>
+        <li><a href="freinds.html">freinds</a></li>
+        <li><a href="Delete account">Delete account</a></li>
+      </ul>
+  </nav>
+
   <h1>Friends List</h1>
 
   <div class="input-container">
@@ -173,7 +291,16 @@
   <div class="friends-list" id="list" style="width: 1000px;">
     <p class="empty-message">No friends yet. Add some!</p>
   </div>
-
+  <style>.friends-list {
+  max-width: 450px;
+  width: 100%;
+  margin: 0 auto;
+  background: #1e1e1e;
+  border-radius: 12px;
+  padding: 15px;
+  box-shadow: 0 0 12px rgba(0,0,0,0.8);
+  min-height: 300px;
+}</style>
   <script defer src="/js/f.js"></script>
 </body>
 </html>

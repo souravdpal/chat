@@ -144,7 +144,8 @@
       align-self: flex-end;
       border-bottom-right-radius: 4px;
     }
-
+    
+    
     .message.other {
       background-color: var(--message-bg-other);
       color: var(--message-text-other);
@@ -285,11 +286,63 @@
       Chat App
       <button class="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
     </div>
+    <style>.friend-request {
+  background-color: var(--accent);
+  color: var(--message-text-user);
+  padding: 12px 15px;
+  border-radius: 15px;
+  max-width: 70%;
+  margin: 0 auto 15px auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  box-shadow: var(--shadow);
+  animation: fadeIn 0.3s ease;
+}
 
+.friend-request span {
+  flex: 1;
+}
+
+.friend-request button {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: var(--message-text-user);
+  padding: 6px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.8rem;
+  transition: background-color 0.2s ease;
+}
+
+.friend-request button:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.btn-accept {
+  background-color: #28a745; /* green */
+}
+
+.btn-accept:hover {
+  background-color: #218838;
+}
+
+.btn-decline {
+  background-color: #dc3545; /* red */
+}
+
+.btn-decline:hover {
+  background-color: #c82333;
+}
+</style>
     <!-- Chat body -->
     <div class="chat-messages" id="here">
    
-    
+      
 
       <div class="notification" style="
   background-color: var(--notification-bg);
