@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI CHAT </title>
+  <title>AI CHAT</title>
   <style>
     /* Reset default styles */
     * {
@@ -86,6 +86,104 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
+    }
+
+    /* Navbar styling */
+    .navbar {
+      background-color: var(--bg-chat);
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--text-primary);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .navbar .logo {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .nav-links {
+      list-style: none;
+      display: flex;
+      gap: 20px;
+    }
+
+    .nav-links li a {
+      color: var(--text-primary);
+      text-decoration: none;
+      font-size: 1rem;
+      transition: color 0.3s;
+    }
+
+    .nav-links li a:hover {
+      color: var(--accent);
+    }
+
+    .hamburger {
+      display: none;
+      flex-direction: column;
+      cursor: pointer;
+    }
+
+    .hamburger span {
+      width: 25px;
+      height: 3px;
+      background-color: var(--text-primary);
+      margin: 2px 0;
+      transition: all 0.3s;
+    }
+
+    #menu-toggle {
+      display: none;
+    }
+
+    /* Mobile Navbar */
+    @media screen and (max-width: 768px) {
+      .hamburger {
+        display: flex;
+      }
+
+      .nav-links {
+        display: none;
+        width: 100%;
+        position: absolute;
+        top: 60px;
+        left: 0;
+        background-color: var(--bg-chat);
+        flex-direction: column;
+        padding: 20px;
+        text-align: center;
+        border-bottom: 1px solid var(--border);
+        z-index: 1000;
+      }
+
+      .nav-links li {
+        margin: 10px 0;
+      }
+
+      #menu-toggle:checked ~ .nav-links {
+        display: flex;
+      }
+
+      #menu-toggle:checked ~ .hamburger span:nth-child(1) {
+        transform: rotate(45deg) translate(5px, 5px);
+      }
+
+      #menu-toggle:checked ~ .hamburger span:nth-child(2) {
+        opacity: 0;
+      }
+
+      #menu-toggle:checked ~ .hamburger span:nth-child(3) {
+        transform: rotate(-45deg) translate(7px, -7px);
+      }
+    }
+
+    @media screen and (min-width: 769px) {
+      .nav-links {
+        display: flex !important;
+      }
     }
 
     /* Header */
@@ -275,11 +373,40 @@
         padding: 10px 20px;
       }
     }
+
+    /* Typing indicator */
+    .chat-typing {
+      display: flex;
+      align-items: flex-end;
+      margin: 12px;
+    }
+
+    /* Optional: Improve visibility on very light backgrounds */
+    body {
+      background: #202020; /* test background; remove/change as needed */
+    }
   </style>
 </head>
 
 <body>
   <div class="chat-container">
+    <!-- Navbar -->
+    <nav class="navbar">
+      <div class="logo">ChatApp</div>
+      <input type="checkbox" id="menu-toggle">
+      <label for="menu-toggle" class="hamburger">
+        <span></span>
+        <span></span>
+        <span></span>
+      </label>
+        <ul class="nav-links">
+        <li><a href="home.html">Home</a></li>
+        <li><a href="world.html">World-Chats</a></li>
+        <li><a href="about me ">About</a></li>
+        <li><a href="freinds.html">freinds</a></li>
+        <li><a href="Delete account" onclick="rm();">Delete account</a></li>
+      </ul>
+    </nav>
     <!-- Header -->
     <div class="chat-header">
       Chat App
@@ -288,39 +415,23 @@
 
     <!-- Chat body -->
     <div class="chat-messages" id="here">
-   
-    
-
       <div class="notification" style="
-  background-color: var(--notification-bg);
-  color: var(--notification-text);
-  padding: 8px 15px;
-  border-radius: 15px;
-  font-size: 0.9rem;
-  text-align: center;
-  align-self: center;
-  margin: 10px 0;
-  animation: fadeIn 0.3s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  display: inline-block;
-"><span id="join"></span></div>
+        background-color: var(--notification-bg);
+        color: var(--notification-text);
+        padding: 8px 15px;
+        border-radius: 15px;
+        font-size: 0.9rem;
+        text-align: center;
+        align-self: center;
+        margin: 10px 0;
+        animation: fadeIn 0.3s ease;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        display: inline-block;
+      "><span id="join"></span></div>
     </div>
- <div class="chat-typing">
-  <div class="bubble"><span id="type"></span></div>
-</div>
-<style>
-.chat-typing {
-  display: flex;
-  align-items: flex-end;
-  margin: 12px;
-}
-
-
-/* Optional: Improve visibility on very light backgrounds */
-body {
-  background: #202020; /* test background; remove/change as needed */
-}
-</style>
+    <div class="chat-typing">
+      <div class="bubble"><span id="type"></span></div>
+    </div>
     <!-- Input bar -->
     <div class="chat-input">
       <input type="text" id="take" placeholder="Type a message..." />
@@ -348,6 +459,8 @@ body {
     }
   </script>
 
+  <script defer src="js/world.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
 </body>
 
 </html>

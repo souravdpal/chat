@@ -9,7 +9,7 @@ const port = process.env.PORT || 3000;
 const axios = require("axios");
 const mongo = require("mongoose");
 require("dotenv").config();
-let mongo_uri = process.env.mongo_api;
+let mongo_uri = process.env.MONGO_URI;
 const http = require("http");
 const server = http.createServer(app);
 const { Server } = require("socket.io");
@@ -27,7 +27,7 @@ app.get("/", (req, res) => {
 });
 
 mongo
-  .connect(mongo_uri)
+  .connect("mongodb://localhost:27017/chat_app")
   .then(() => {
     console.log("mongo_db connected!");
   })
@@ -40,6 +40,7 @@ const user_body = new mongo.Schema({
   user: String,
   key1: String,
   f: [String],
+  fr_await: [String],
   status: {
     type: Boolean,
     default: false,
@@ -88,7 +89,7 @@ app.post("/cred", async (req, res) => {
     const result = await bcrypt.compare(key_log, auth1_log.key1);
 
     if (result) {
-      res.status(200).send(auth1_log.name);
+      res.status(200).json({ name: auth1_log.name, user: auth1_log.user });
     } else {
       res.status(400).send("Incorrect password!");
     }
@@ -97,13 +98,30 @@ app.post("/cred", async (req, res) => {
     res.status(500).send("Server error!");
   }
 });
-
+app.post("/wiki_cmd", async (req, res) => {
+  const { msg } = req.body;
+  console.log(`user ask from wiki  ${msg}`);
+  try {
+    const response = await axios.post("http://localhost:4000/wiki", {
+      prompt: msg,
+    });
+    let wiki_ans = response.data.reply;
+    console.log("wiki" + wiki_ans);
+    res.json({ reply: `wiki says : ${wiki_ans}` });
+  } catch (error) {
+    console.error(
+      "Error from Python server:",
+      error.response?.data || error.message
+    );
+  }
+  res.json({ reply: "server: page not found" });
+});
 app.post("/msg", async (req, res) => {
   const { msg } = req.body;
   console.log(`user:${msg}`);
 
   try {
-    const response = await axios.post("http://localhost:5000/chat", {
+    const response = await axios.post("http://localhost:6000/chat", {
       prompt: msg,
       model: "deepseek-r1:1.5b",
     });
@@ -137,37 +155,79 @@ let sock = () => {
 };
 sock();
 
-app.post("/f", async (req, res) => {
-  let get_data = req.body;
-  let sender = get_data.s;
-  let name = get_data.name;
+app.post("/fr_await", async (req, res) => {
+  let { from, to, user } = req.body;
+  if (from !== "" && to == "") {
+    console.log(`from ${from} to  ${to}`);
+  }
+
+  console.log(user);
   try {
-    const f_req1 = await user_cred_data.findOne(
-      { user: name },
-      { user: 1, name: 1, _id: 0 }
+    const user_await = await user_cred_data.find(
+      { user: user },
+      { _id: 0, fr_await: 1, user: 1 }
     );
-    if (f_req1.user == name) {
-      let data_req_there = {
-        from: sender,
-        to: name,
-      };
-      res.status(200).json(data_req_there);
+    let ck_user = user_await[0].user;
+    console.log(user_await);
+    console.log(`this is  ${ck_user}`);
+    if (user == ck_user) {
+      console.log(ck_user);
+      let sender_mess = await user_await[0].fr_await;
+      console.log(sender_mess);
+      return res.json({ awaiter: sender_mess });
     }
   } catch (err) {
-    console.log("ERROR" + err);
+    console.log(err + "err");
+  } finally {
+    try {
+      const chk_fr = await user_cred_data.findOne(
+        { user: to },
+        { user: 1, name: 1, key1: 1, _id: 0, fr_await: 1 }
+      );
+      console.log(chk_fr);
+      if (!chk_fr) {
+        console.log("error user not found by server");
+        return res.status(200).json({ msg: `Failed , ${to} not exist ` });
+      }
+      if (chk_fr.user === to) {
+        console.log("true");
+        const from_wait_lst_upt = await user_cred_data.updateOne(
+          { user: to },
+          { $addToSet: { fr_await: from } }
+        );
+        res.json({ msg: `req to ${to}  send sucsefully` });
+        chk_fr.fr_await.forEach((fr1) => {
+          console.log(fr1);
+        });
+      } else {
+        res.status(200).json({ msg: `Failed , ${to} not exist ` });
+      }
+    } catch (err) {
+      console.log(err);
+    }
   }
 });
-app.get("/f_res", (req, res) => {
-  let { ans } = req.body;
-  if (ans === "ok") {
-    res.status(200).json({ data: "ok" });
-  } else if (ans === "denied") {
-    res.status(200).json({ data: "denied" });
-  } else {
-    res.status(200).json({ data: "err" });
+app.post("/fr_u", async (req, res) => {
+  let data  = req.body;
+  let res_user = data.res_user;
+  let from  = data.from ;
+  let to  = data.to ;
+  if (res_user == "ok") {
+    const from_wait_lst_upt = await user_cred_data.updateOne(
+      { user: from },
+      { $addToSet: { f: from } }
+    );
+    const to_wait_lst_upt = await user_cred_data.updateOne(
+      { user: to },
+      { $addToSet: { f: to }, 
+       $pull : {fr_await : from}
+    
+    }
+    );
+    console.log(`the ${from} who got req replied ${res_user}  to  ${to}`)
+    
   }
-  console.log(ans);
 });
 server.listen(port, () => {
-  console.log(`Server is running on port http://localhost:${port}`);
+  console.log(`Server running on http://localhost:${port}`);
 });

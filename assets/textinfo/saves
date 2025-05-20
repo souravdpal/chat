@@ -1,25 +1,10 @@
-let user ; name ; key;
-
-let send = ()=>{
-    user  =  document.getElementById('user').value;
-    name  =  document.getElementById('name').value;
-    key  =  document.getElementById('key').value;
-    if(user == '' || name == '' || key == ''){
-        alert('Please fill all the fields');
-        return; 
-    }
-    alert(user  , key  , name );
-    let data = {
-        user : user,
-        name : name,
-        key : key
-    }
-    console.log(data);
-    fetch('http://127.0.0.1:3000/users' , {
-        method : 'POST',
-        headers : {
-            'Content-Type' : 'application/json'
-        },
-        body : JSON.stringify(data)
-    })
-}
+ //ins.innerHTML += `
+   //     <div class="chat-messages" id="${requestId}">
+     //     <div class="friend-request">
+       //     <span><strong>${fromUser}</strong> sent you a friend request.</span><br><br>
+         //   <button class="btn-accept" id="accept-${index}">Accept</button>
+           // <button class="btn-reject" id="reject-${index}">Reject</button>
+          //</div>
+       // </div>
+      //`;
+  
