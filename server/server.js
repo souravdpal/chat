@@ -228,6 +228,21 @@ app.post("/fr_u", async (req, res) => {
     
   }
 });
+
+app.post('/get_fr',async (req, res)=>{
+  let {user} = req.body;
+  console.log(user)
+  const give_fr_lst = await user_cred_data.find(
+    { user: user},
+    { _id: 0, f: 1, user: 1 }
+  );
+  let fr_lst_user  = give_fr_lst[0].f
+  console.log(`${user} fr list is ${fr_lst_user}`)
+  res.status(200).json({fr : fr_lst_user})
+})
+
+
+
 server.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
 });
