@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI CHAT </title>
+  <title>AI CHAT</title>
   <style>
     /* Reset default styles */
     * {
@@ -16,7 +16,6 @@
 
     /* Theme variables */
     :root {
-      /* Light Mode */
       --bg-primary: #f0f2f5;
       --bg-chat: #ffffff;
       --text-primary: #050505;
@@ -32,7 +31,6 @@
     }
 
     [data-theme="dark"] {
-      /* Dark Mode */
       --bg-primary: #18191a;
       --bg-chat: #242526;
       --text-primary: #e4e6eb;
@@ -48,7 +46,6 @@
     }
 
     [data-theme="blue"] {
-      /* Blue Theme */
       --bg-primary: #1e2a44;
       --bg-chat: #2a3b66;
       --text-primary: #d6e4ff;
@@ -86,6 +83,151 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
+    }
+
+    /* Navbar styling */
+    .navbar {
+      background-color: var(--bg-chat);
+      padding: 12px 20px; /* Reduced padding for better alignment with chat bar */
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      position: relative;
+      z-index: 10;
+    }
+
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: transform 0.3s ease, color 0.3s ease;
+    }
+
+    .logo:hover {
+      color: var(--accent);
+    }
+
+    /* Hamburger menu styling */
+    #menu-toggle {
+      display: none;
+    }
+
+    .hamburger {
+      display: none;
+      flex-direction: column;
+      justify-content: space-around;
+      width: 30px;
+      height: 25px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .hamburger span {
+      width: 100%;
+      height: 3px;
+      background-color: var(--text-primary);
+      border-radius: 2px;
+      transition: all 0.3s ease;
+    }
+
+    #menu-toggle:checked ~ .hamburger span:nth-child(1) {
+      transform: rotate(45deg) translate(5px, 5px);
+    }
+
+    #menu-toggle:checked ~ .hamburger span:nth-child(2) {
+      opacity: 0;
+    }
+
+    #menu-toggle:checked ~ .hamburger span:nth-child(3) {
+      transform: rotate(-45deg) translate(7px, -7px);
+    }
+
+    /* Nav links styling */
+    .nav-links {
+      display: flex;
+      list-style: none;
+      gap: 15px; /* Reduced gap for better fit with smaller icons */
+    }
+
+    .nav-links li {
+      position: relative;
+    }
+
+    .nav-link {
+      color: var(--text-primary);
+      text-decoration: none;
+      font-size: 1rem;
+      font-weight: 500;
+      padding: 6px 10px; /* Reduced padding for smaller icons */
+      border-radius: 8px;
+      transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px; /* Reduced gap between icon and text */
+    }
+
+    .nav-link:hover {
+      background-color: var(--accent);
+      color: var(--message-text-user);
+      transform: scale(1.05);
+    }
+
+    .nav-link span {
+      font-size: 0.9rem; /* Smaller icons for better alignment */
+      line-height: 1;
+    }
+
+    /* Responsive navbar */
+    @media (max-width: 768px) {
+      .hamburger {
+        display: flex;
+      }
+
+      .nav-links {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background-color: var(--bg-chat);
+        flex-direction: column;
+        padding: 15px; /* Reduced padding for mobile */
+        border-bottom: 1px solid var(--border);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      #menu-toggle:checked ~ .nav-links {
+        display: flex;
+        animation: slideDown 0.3s ease;
+      }
+
+      .nav-links li {
+        margin: 8px 0; /* Reduced margin for mobile */
+      }
+
+      .nav-link {
+        padding: 10px;
+        font-size: 1rem; /* Slightly smaller font for mobile */
+        gap: 8px; /* Adjusted gap for mobile */
+      }
+
+      .nav-link span {
+        font-size: 1rem; /* Slightly larger than desktop but still smaller than before */
+      }
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     /* Header */
@@ -144,7 +286,6 @@
       align-self: flex-end;
       border-bottom-right-radius: 4px;
     }
-    
     
     .message.other {
       background-color: var(--message-bg-other);
@@ -276,104 +417,118 @@
         padding: 10px 20px;
       }
     }
+
+    .friend-request {
+      background-color: var(--accent);
+      color: var(--message-text-user);
+      padding: 12px 15px;
+      border-radius: 15px;
+      max-width: 70%;
+      margin: 0 auto 15px auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      box-shadow: var(--shadow);
+      animation: fadeIn 0.3s ease;
+    }
+
+    .friend-request span {
+      flex: 1;
+    }
+
+    .friend-request button {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: var(--message-text-user);
+      padding: 6px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.8rem;
+      transition: background-color 0.2s ease;
+    }
+
+    .friend-request button:hover {
+      background: rgba(255, 255, 255, 0.4);
+    }
+
+    .btn-accept {
+      background-color: #28a745; /* green */
+    }
+
+    .btn-accept:hover {
+      background-color: #218838;
+    }
+
+    .btn-decline {
+      background-color: #dc3545; /* red */
+    }
+
+    .btn-decline:hover {
+      background-color: #c82333;
+    }
+
+    .chat-typing {
+      display: flex;
+      align-items: flex-end;
+      margin: 12px;
+    }
+
+    /* Optional: Improve visibility on very light backgrounds */
+    body {
+      background: #202020; /* test background; remove/change as needed */
+    }
   </style>
 </head>
 
 <body>
   <div class="chat-container">
+    <!-- Enhanced Navbar with Animations -->
+    <nav class="navbar" style="animation: slideIn 0.5s ease-out;">
+      <div class="logo" style="display: flex; align-items: center; transition: transform 0.3s ease;">
+        <span style="color: var(--accent); font-size: 1.8rem; margin-right: 5px;">Chat</span>App
+      </div>
+      <input type="checkbox" id="menu-toggle">
+      <label for="menu-toggle" class="hamburger">
+        <span></span>
+        <span></span>
+        <span></span>
+      </label>
+      <ul class="nav-links">
+        <li><a href="home.html" class="nav-link" style="display: flex; align-items: center; gap: 5px; transition: transform 0.2s ease;"><span>🏠</span>Home</a></li>
+        <li><a href="world.html" class="nav-link" style="display: flex; align-items: center; gap: 5px; transition: transform 0.2s ease;"><span>🌐</span>World-Chats</a></li>
+        <li><a href="aboutme.html" class="nav-link" style="display: flex; align-items: center; gap: 5px; transition: transform 0.2s ease;"><span>ℹ️</span>About</a></li>
+        <li><a href="freinds.html" class="nav-link" style="display: flex; align-items: center; gap: 5px; transition: transform 0.2s ease;"><span>👥</span>Friends</a></li>
+        <li><a href="##op(##prompt#aleart)" onclick="alert('comming soon!')"  class="nav-link" style="display: flex; align-items: center; gap: 5px; transition: transform 0.2s ease;"><span>^_^</span>Coming soon!</a></li>
+      </ul>
+    </nav>
     <!-- Header -->
     <div class="chat-header">
       Chat App
       <button class="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
     </div>
-    <style>.friend-request {
-  background-color: var(--accent);
-  color: var(--message-text-user);
-  padding: 12px 15px;
-  border-radius: 15px;
-  max-width: 70%;
-  margin: 0 auto 15px auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  font-weight: 600;
-  font-size: 0.9rem;
-  box-shadow: var(--shadow);
-  animation: fadeIn 0.3s ease;
-}
-
-.friend-request span {
-  flex: 1;
-}
-
-.friend-request button {
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
-  color: var(--message-text-user);
-  padding: 6px 12px;
-  border-radius: 12px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 0.8rem;
-  transition: background-color 0.2s ease;
-}
-
-.friend-request button:hover {
-  background: rgba(255, 255, 255, 0.4);
-}
-
-.btn-accept {
-  background-color: #28a745; /* green */
-}
-
-.btn-accept:hover {
-  background-color: #218838;
-}
-
-.btn-decline {
-  background-color: #dc3545; /* red */
-}
-
-.btn-decline:hover {
-  background-color: #c82333;
-}
-</style>
     <!-- Chat body -->
     <div class="chat-messages" id="here">
-   
-      
-
       <div class="notification" style="
-  background-color: var(--notification-bg);
-  color: var(--notification-text);
-  padding: 8px 15px;
-  border-radius: 15px;
-  font-size: 0.9rem;
-  text-align: center;
-  align-self: center;
-  margin: 10px 0;
-  animation: fadeIn 0.3s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  display: inline-block;
-"><span id="join"></span></div>
+        background-color: var(--notification-bg);
+        color: var(--notification-text);
+        padding: 8px 15px;
+        border-radius: 15px;
+        font-size: 0.9rem;
+        text-align: center;
+        align-self: center;
+        margin: 10px 0;
+        animation: fadeIn 0.3s ease;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        display: inline-block;
+      "><span id="join"></span></div>
     </div>
- <div class="chat-typing">
-  <div class="bubble"><span id="type"></span></div>
-</div>
-<style>
-.chat-typing {
-  display: flex;
-  align-items: flex-end;
-  margin: 12px;
-}
-
-
-/* Optional: Improve visibility on very light backgrounds */
-body {
-  background: #202020; /* test background; remove/change as needed */
-}
-</style>
+    <div class="chat-typing">
+      <div class="bubble"><span id="type"></span></div>
+    </div>
     <!-- Input bar -->
     <div class="chat-input">
       <input type="text" id="take" placeholder="Type a message..." />
@@ -397,10 +552,34 @@ body {
       currentThemeIndex = (currentThemeIndex + 1) % themes.length;
       const newTheme = themes[currentThemeIndex];
       document.documentElement.setAttribute('data-theme', newTheme);
-      localStorage.setItem('theme', newTheme); // Save selected theme
+      localStorage.setItem('theme', newTheme);
     }
-  </script>
 
+    // Navbar animations
+    document.addEventListener('DOMContentLoaded', () => {
+      const logo = document.querySelector('.logo');
+      const navLinks = document.querySelectorAll('.nav-link');
+
+      // Logo hover effect
+      logo.addEventListener('mouseenter', () => {
+        logo.style.transform = 'scale(1.1)';
+      });
+      logo.addEventListener('mouseleave', () => {
+        logo.style.transform = 'scale(1)';
+      });
+
+      // Nav links hover effect
+      navLinks.forEach(link => {
+        link.addEventListener('mouseenter', () => {
+          link.style.transform = 'scale(1.05)';
+        });
+        link.addEventListener('mouseleave', () => {
+          link.style.transform = 'scale(1)';
+        });
+      });
+    });
+  </script>
+ 
   <script defer src="js/home.js"></script>
 </body>
 

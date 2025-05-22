@@ -1,41 +1,41 @@
-let info = () => {
-    const user_log = document.getElementById('user').value.trim();
-    const key = document.getElementById('key').value.trim();
+let info = async () => {
+    const userInput = document.getElementById('user').value.trim();
+    const password = document.getElementById('key').value.trim();
 
-    if (user_log === "" || key === "") {
-        return alert("You can't leave fields empty! Please fill in the details.");
+    if (!userInput || !password) {
+        alert("You can't leave fields empty! Please fill in the details.");
+        return;
     }
 
-    const cred = {
-        user_log: user_log,
-        key_log: key
+    const credentials = {
+        user_log: userInput,
+        key_log: password
     };
 
-    fetch('/cred', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(cred)
-    }).then(async response => {
+    try {
+        const response = await fetch('/cred', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(credentials)
+        });
+
         const data = await response.json();
-    
-        if (response.ok) {
-            try {
-                let {name , user} = data;
-                localStorage.setItem('name', name);
-                localStorage.setItem('user' , user)
-                alert(`${name}, welcome!`);
-                window.location.href = "home.html";
-            } catch (err) {
-                alert("Error fetching user data.");
-                console.error(err);
-            }
-        } else {
-            alert(`Login failed: ${data.message || "Unknown error"}`);
+
+        if (!response.ok) {
+            return alert(`Login failed: ${data.message || "Invalid credentials."}`);
         }
-    }).catch(error => {
-        console.error('Fetch error:', error);
-        alert("Network error occurred. Please try again.");
-    });
-}
+
+        const { name, user } = data;
+
+        // Save to localStorage
+        localStorage.setItem('name', name);
+        localStorage.setItem('user', user);
+
+        alert(`${name}, welcome!`);
+        window.location.href = "home.html";
+
+    } catch (error) {
+        console.error('Login error:', error);
+        alert("Network error. Please try again.");
+    }
+};

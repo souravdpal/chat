@@ -19,7 +19,7 @@ function getInitials(name) {
 function renderFriends(filter = "") {
   listContainer.innerHTML = "";
 
-  const filtered = friends.filter(friend =>
+  const filtered = friends.filter((friend) =>
     friend.toLowerCase().includes(filter.toLowerCase())
   );
 
@@ -28,7 +28,7 @@ function renderFriends(filter = "") {
     return;
   }
 
-  filtered.forEach(friend => {
+  filtered.forEach((friend) => {
     const friendDiv = document.createElement("div");
     friendDiv.className = "friend";
 
@@ -54,22 +54,25 @@ addBtn.addEventListener("click", () => {
     alert("You can't add yourself as a friend!");
     return;
   }
+  if (friends.includes(fr_name)) {
+    alert("This friend is already in your list.");
+    return;
+  }
 
   // Send friend request
-  alert(user)
-  fetch("/fr_send", {
+  fetch("/get/send", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ from: user_name, to: fr_name }),
   })
-    .then(res => res.json())
-    .then(data => {
+    .then((res) => res.json())
+    .then((data) => {
       alert(data.msg || "Friend request sent!");
       frInput.value = "";
     })
-    .catch(err => {
+    .catch((err) => {
       console.error("Error sending friend request:", err);
       alert("Failed to send friend request.");
     });
@@ -82,10 +85,10 @@ function fetchFriends() {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ user  : user_name }),
+    body: JSON.stringify({ user: user_name }),
   })
-    .then(res => res.json())
-    .then(data => {
+    .then((res) => res.json())
+    .then((data) => {
       if (Array.isArray(data.fr)) {
         friends = data.fr;
         renderFriends(searchInput.value);
@@ -93,16 +96,29 @@ function fetchFriends() {
         console.error("Invalid response format:", data);
       }
     })
-    .catch(err => {
+    .catch((err) => {
       console.error("Error fetching friends:", err);
     });
 }
 
-// Search event
+// Search input handler
 searchInput.addEventListener("input", () => {
   renderFriends(searchInput.value);
 });
 
-// Initial fetch and refresh every 100 seconds
+// Initial fetch and periodic refresh
 fetchFriends();
-setInterval(fetchFriends, 100000);
+setInterval(fetchFriends, 500);
+
+let ans_send_ans = () => {
+  fetch("/ans/res")
+    .then((response1) => response1.json())
+    .then((data1) => {
+      if (data1.length > 0 && user_name == data1[0].user_from) {
+        console.log("Received data:", data1[0]);
+        alert(data1[0].msg);
+      }
+    });
+};
+
+setInterval(ans_send_ans, 500);
