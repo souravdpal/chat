@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>About Me - Sourav</title>
+  <style>
+    :root {
+      --primary: #00c6ff;
+      --secondary: #0072ff;
+      --bg: #0f0c29;
+      --bg-gradient: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      --card-bg: rgba(255, 255, 255, 0.05);
+      --card-border: rgba(255, 255, 255, 0.1);
+      --text-primary: #ffffff;
+      --text-secondary: #d1d1d1;
+      --shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg-gradient);
+      color: var(--text-primary);
+      padding: 60px 20px;
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Subtle background animation */
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--bg-gradient);
+      animation: gradientShift 15s ease infinite;
+      z-index: -1;
+      opacity: 0.6;
+    }
+
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      display: grid;
+      gap: 50px; /* Increased gap for better spacing */
+    }
+
+    .section {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px); /* Enhanced glassmorphism effect */
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      animation: popIn 1s ease;
+    }
+
+    .section:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    h1, h2 {
+      background: linear-gradient(to right, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      color: transparent;
+    }
+
+    h1 {
+      font-size: 3.5rem; /* Slightly larger for impact */
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 15px;
+      letter-spacing: 1px;
+    }
+
+    h2 {
+      font-size: 2.2rem; /* Slightly larger for emphasis */
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    p {
+      font-size: 1.2rem;
+      line-height: 1.8; /* Improved readability */
+      color: var(--text-secondary);
+    }
+
+    strong {
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px; /* Slightly increased gap for better spacing */
+      margin-top: 20px;
+    }
+
+    .tag {
+      background: linear-gradient(45deg, var(--primary), var(--secondary));
+      color: #fff;
+      padding: 10px 18px; /* Slightly larger padding for better appearance */
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 12px rgba(0, 198, 255, 0.5);
+      cursor: pointer;
+    }
+
+    .tag:hover {
+      background: linear-gradient(45deg, var(--secondary), var(--primary));
+      transform: scale(1.1) rotate(3deg); /* Added a subtle rotation for fun */
+      box-shadow: 0 0 20px rgba(0, 114, 255, 0.7);
+    }
+
+    .tag:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(0, 198, 255, 0.5);
+    }
+
+    /* Back to Top Button */
+    .back-to-top {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: var(--primary);
+      color: #fff;
+      padding: 12px 18px;
+      border-radius: 50%;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      text-decoration: none;
+      font-size: 1.2rem;
+      opacity: 0;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .back-to-top.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .back-to-top:hover {
+      background: var(--secondary);
+      transform: translateY(-3px);
+    }
+
+    @keyframes popIn {
+      0% {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 40px 15px;
+      }
+
+      h1 {
+        font-size: 2.5rem; /* Adjusted for mobile */
+      }
+
+      h2 {
+        font-size: 1.8rem;
+      }
+
+      p {
+        font-size: 1.1rem;
+      }
+
+      .section {
+        padding: 25px;
+      }
+
+      .tags {
+        gap: 10px;
+      }
+
+      .tag {
+        padding: 8px 14px;
+        font-size: 0.9rem;
+      }
+
+      .back-to-top {
+        bottom: 20px;
+        right: 20px;
+        padding: 10px 14px;
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <section class="section">
+      <h1>About Me</h1>
+      <p>I’m a student passionate about <strong>space</strong>, <strong>astrophysics</strong>, and <strong>coding</strong>. I spend my time learning full-stack development, exploring the universe, and experimenting with new technologies.</p>
+    </section>
+
+    <section class="section">
+      <h2>My Focus</h2>
+      <p>I aim to understand the cosmos while building powerful software. My dream is to one day create my own <strong>large language model (LLM)</strong> and a human-like <strong>text-to-speech (TTS)</strong> voice system.</p>
+    </section>
+
+    <section class="section">
+      <h2>Currently Learning</h2>
+      <div class="tags">
+        <div class="tag" tabindex="0">Astrophysics</div>
+        <div class="tag" tabindex="0">react js (started)</div>
+        <div class="tag" tabindex="0">Quantum Mechanics</div>
+        <div class="tag" tabindex="0">Node.js</div>
+        <div class="tag" tabindex="0">MongoDB</div>
+        <div class="tag" tabindex="0">Socket.IO</div>
+        <div class="tag" tabindex="0">JavaScript</div>
+        <div class="tag" tabindex="0">Python</div>
+        <div class="tag" tabindex="0">AI/ML(soon)</div>
+        <div class="tag" tabindex="0">LLMs(soon)</div>
+        <div class="tag" tabindex="0">TTS(soon)</div>
+        <div class="tag" tabindex="0">Rust (soon)</div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Back to Top Button -->
+  <a href="#" class="back-to-top" title="Back to Top">↑</a>
+
+  <script>
+    // Back to Top Button Visibility
+    const backToTop = document.querySelector('.back-to-top');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 300) {
+        backToTop.classList.add('visible');
+      } else {
+        backToTop.classList.remove('visible');
+      }
+    });
+  </script>
+</body>
+</html>

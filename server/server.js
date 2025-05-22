@@ -47,6 +47,18 @@ const user_body = new mongo.Schema({
   },
 });
 const user_cred_data = mongo.models.user || mongo.model("user", user_body);
+let exist = async (username_user) => {
+  const db_user_cheker = await user_cred_data.findOne(
+    { user: username_user }, // Fixed this
+    { user: 1, _id: 0, name: 1 }
+  );
+
+  if (!db_user_cheker) {
+    return false; // User not found
+  }
+
+  return db_user_cheker.user === username_user;
+};
 
 app.post("/user", async (req, res) => {
   let { name, user, key } = req.body;
@@ -73,7 +85,7 @@ app.post("/user", async (req, res) => {
 
 app.post("/cred", async (req, res) => {
   const { user_log, key_log } = req.body;
-  console.log(user_log, key_log);
+  console.log(user_log + "login to server");
 
   try {
     const auth1_log = await user_cred_data.findOne(
@@ -154,94 +166,123 @@ let sock = () => {
   });
 };
 sock();
+app.post("/get/send", async (req, res) => {
+  let { from, to } = req.body;
+  try {
+    const chk_fr = await user_cred_data.findOne(
+      { user: to },
+      { user: 1, name: 1, key1: 1, _id: 0, fr_await: 1 }
+    );
+    console.log(chk_fr.user);
+    if (!chk_fr) {
+      console.log("error user not found by server");
+      return res.status(200).json({ msg: `Failed , ${to} not exist ` });
+    }
+    if (chk_fr.fr_await.includes(from)) {
+      return console.log("user exist already in wait list");
+    }
 
-app.post("/fr_await", async (req, res) => {
-  let { from, to, user } = req.body;
-  if (from !== "" && to == "") {
-    console.log(`from ${from} to  ${to}`);
+    if (chk_fr.user === to) {
+      console.log("true");
+      const from_wait_lst_upt = await user_cred_data.updateOne(
+        { user: to },
+        { $addToSet: { fr_await: from } }
+      );
+      res.json({ msg: `req to ${to}  send sucsefully` });
+      chk_fr.fr_await.forEach((fr1) => {
+        console.log(fr1);
+      });
+    } else {
+      res.status(200).json({ msg: `Failed , ${to} not exist ` });
+    }
+  } catch (err) {
+    console.log(err);
   }
-
-  console.log(user);
+});
+app.post("/fr_await", async (req, res) => {
+  let { user, i } = req.body;
+  //console.log(i - i);
+  //console.log("fr await user fetching from home js "+ user);
   try {
     const user_await = await user_cred_data.find(
       { user: user },
-      { _id: 0, fr_await: 1, user: 1 }
+      { _id: 0, fr_await: 1, user: 1, f: 1 }
     );
     let ck_user = user_await[0].user;
-    console.log(user_await);
-    console.log(`this is  ${ck_user}`);
+    //console.log('this is whole arry'   + user_await);
+    //console.log(`this is  ${ck_user}`);
     if (user == ck_user) {
-      console.log(ck_user);
+      //console.log(ck_user);
       let sender_mess = await user_await[0].fr_await;
-      console.log(sender_mess);
+      //console.log(`${sender_mess}    this is awaiting list  `);
       return res.json({ awaiter: sender_mess });
     }
   } catch (err) {
-    console.log(err + "err");
-  } finally {
-    try {
-      const chk_fr = await user_cred_data.findOne(
-        { user: to },
-        { user: 1, name: 1, key1: 1, _id: 0, fr_await: 1 }
-      );
-      console.log(chk_fr);
-      if (!chk_fr) {
-        console.log("error user not found by server");
-        return res.status(200).json({ msg: `Failed , ${to} not exist ` });
-      }
-      if (chk_fr.user === to) {
-        console.log("true");
-        const from_wait_lst_upt = await user_cred_data.updateOne(
-          { user: to },
-          { $addToSet: { fr_await: from } }
-        );
-        res.json({ msg: `req to ${to}  send sucsefully` });
-        chk_fr.fr_await.forEach((fr1) => {
-          console.log(fr1);
-        });
-      } else {
-        res.status(200).json({ msg: `Failed , ${to} not exist ` });
-      }
-    } catch (err) {
-      console.log(err);
-    }
+    console.log(err + "err block");
   }
 });
+let g_res = [];
 app.post("/fr_u", async (req, res) => {
-  let data  = req.body;
+  let data = req.body;
   let res_user = data.res_user;
-  let from  = data.from ;
-  let to  = data.to ;
+  let from = data.from;
+  let to = data.to;
+  console.log(res_user);
   if (res_user == "ok") {
     const from_wait_lst_upt = await user_cred_data.updateOne(
       { user: from },
-      { $addToSet: { f: from } }
+      { $addToSet: { f: to } }
     );
     const to_wait_lst_upt = await user_cred_data.updateOne(
       { user: to },
-      { $addToSet: { f: to }, 
-       $pull : {fr_await : from}
-    
-    }
+      { $addToSet: { f: from }, $pull: { fr_await: from } }
     );
-    console.log(`the ${from} who got req replied ${res_user}  to  ${to}`)
-    
+    g_res.push({ msg: "fr req accepted!", user_from: from });
+    console.log(`the ${from} who got req replied ${res_user}  to  ${to}`);
+  } else if (res_user == "no") {
+    const pull_fr = await user_cred_data.updateOne(
+      { user: to },
+      { $pull: { fr_await: from } }
+    );
+    console.log("req denied");
+    g_res.push({ msg: "freind req denied", user_from: from });
   }
 });
+//console.log(g_res[0]);
+app.get("/ans/res", (req, res) => {
+  res.json(g_res);
+  g_res = [];
+});
+app.post("/get_fr", async (req, res) => {
+  let { user } = req.body;
 
-app.post('/get_fr',async (req, res)=>{
-  let {user} = req.body;
-  console.log(user)
+  //console.log(user);
   const give_fr_lst = await user_cred_data.find(
-    { user: user},
+    { user: user },
     { _id: 0, f: 1, user: 1 }
   );
-  let fr_lst_user  = give_fr_lst[0].f
-  console.log(`${user} fr list is ${fr_lst_user}`)
-  res.status(200).json({fr : fr_lst_user})
-})
+  let fr_lst_user = give_fr_lst[0].f;
+  res.status(200).json({ fr: fr_lst_user });
+  //console.log(`${user} fr list is ${fr_lst_user}`);
+});
 
+app.delete("/dl/:username", async (req, res) => {
+  const username = req.params.username;
+  console.log("Attempting to delete user:", username);
 
+  try {
+    const deletionResult = await user_cred_data.deleteOne({ user: username });
+
+    if (deletionResult.deletedCount === 0) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    return res.status(200).json({ msg: `Successfully deleted user '${username}'` });
+  } catch (error) {
+    console.error("Error during user deletion:", error);
+    return res.status(500).json({ msg: "Server error during account deletion" });
+  }
+});
 
 server.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);

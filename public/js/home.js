@@ -6,6 +6,7 @@ let avail_models = `
 1. deepseek-r1:1.5b <br><br><br>
 2. gemma3:4b
 `;
+let fr_cleaner = document.getElementById("cleaner");
 
 let user = localStorage.getItem("user");
 // Show join message once when the script runs
@@ -33,10 +34,22 @@ let work = async () => {
       8. /m  = to see available models for your AI 
     </div>`;
     input.value = "";
+    if (fr_cleaner) {
+      fr_cleaner.innerHTML = "";
+    } else {
+      console.log("no rm");
+    }
+
     return;
   } else if (msg_box === "/r") {
     window.location.reload();
     input.value = "";
+    if (fr_cleaner) {
+      fr_cleaner.innerHTML = "";
+    } else {
+      console.log("no rm");
+    }
+
     return;
   } else if (msg_box === "/wiki") {
     let for_wiki1 = prompt("What do you want to ask Wiki?");
@@ -46,6 +59,11 @@ let work = async () => {
     type.innerHTML = "wiki answering...";
     ins.scrollTop = ins.scrollHeight;
     input.value = "";
+    if (fr_cleaner) {
+      fr_cleaner.innerHTML = "";
+    } else {
+      console.log("no rm");
+    }
 
     let wiki_msg = { msg: for_wiki };
     try {
@@ -62,17 +80,38 @@ let work = async () => {
           data.reply || JSON.stringify(data)
         }</div>`;
         ins.scrollTop = ins.scrollHeight;
+        if (fr_cleaner) {
+          fr_cleaner.innerHTML = "";
+        } else {
+          console.log("no rm");
+        }
       } else {
         console.error("Server error:", data);
         type.innerHTML = "";
+        if (fr_cleaner) {
+          fr_cleaner.innerHTML = "";
+        } else {
+          console.log("no rm");
+        }
       }
     } catch (error) {
       console.error("Fetch error:", error);
       type.innerHTML = "";
+      if (fr_cleaner) {
+        fr_cleaner.innerHTML = "";
+      } else {
+        console.log("no rm");
+      }
     }
     return;
   } else if (msg_box === "/m") {
     input.value = "";
+    if (fr_cleaner) {
+  fr_cleaner.innerHTML = "";
+} else {
+  console.log('no rm');
+}
+
     ins.innerHTML += `<div class="message other">${avail_models}</div>`;
     return;
   } else if (msg_box === "/invite") {
@@ -84,100 +123,133 @@ let work = async () => {
     alert("This feature is coming soon.");
     return;
   } else if (msg_box === "/f") {
-    window.location.href = "freinds.html";
-    return;
+    return (window.location.href = "freinds.html");
+  }
+  ins.innerHTML += `<div class="message user">${msg_box}</div>`;
+  type.innerHTML = "Typing...";
+  ins.scrollTop = ins.scrollHeight;
+  input.value = "";
+  if (fr_cleaner) {
+    fr_cleaner.innerHTML = "";
   } else {
-    ins.innerHTML += `<div class="message user">${msg_box}</div>`;
-    type.innerHTML = "Typing...";
-    ins.scrollTop = ins.scrollHeight;
-    input.value = "";
+    console.log("no rm");
+  }
 
-    let msg = { msg: msg_box };
-    try {
-      let response = await fetch("/msg", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(msg),
-      });
+  let msg = { msg: msg_box };
+  console.log(msg.msg);
+  try {
+    let response = await fetch("/msg", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(msg),
+    });
 
-      let data = await response.json();
-      if (response.ok) {
-        type.innerHTML = "";
-        ins.innerHTML += `<div class="message other">${
-          data.reply || JSON.stringify(data)
-        }</div>`;
-        ins.scrollTop = ins.scrollHeight;
+    let data = await response.json();
+    if (response.ok) {
+      type.innerHTML = "";
+      if (fr_cleaner) {
+        fr_cleaner.innerHTML = "";
       } else {
-        console.error("Server error:", data);
-        type.innerHTML = "";
+        console.log("no rm");
       }
-    } catch (error) {
-      console.error("Fetch error:", error);
+
+      ins.innerHTML += `<div class="message other">${
+        data.reply || JSON.stringify(data)
+      }</div>`;
+      ins.scrollTop = ins.scrollHeight;
+    } else {
+      console.error("Server error:", data);
       type.innerHTML = "";
     }
+  } catch (error) {
+    console.error("Fetch error:", error);
+    type.innerHTML = "";
   }
 };
-fetch("/fr_await", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ user }),
-})
-  .then((res) => res.json())
-  .then((data) => {
-    const awaitList = data.awaiter;
 
-    // Fix: Check properly for empty array
-    if (!awaitList || awaitList.length === 0) {
-      ins.innerHTML += `<div class="message other">No friend requests.</div>`;
-      return;
-    }
-
-    awaitList.forEach((fr1, index) => {
-      const requestId = `req-${index}`;
-      const acceptId = `accept-${index}`;
-      const rejectId = `reject-${index}`;
-
-      ins.innerHTML += `
-        <div class="chat-messages" id="${requestId}">
-          <div class="friend-request">
-            <span><strong>${fr1}</strong> sent you a friend request.</span><br><br>
-            <button class="btn-accept" id="${acceptId}">Accept</button>
-            <button class="btn-reject" id="${rejectId}">Reject</button>
-          </div>
-        </div>
-      `;
-
-      // Attach listeners AFTER elements are added
-      setTimeout(() => {
-        const acceptBtn = document.getElementById(acceptId);
-        const rejectBtn = document.getElementById(rejectId);
-
-        acceptBtn.addEventListener("click", () => {
-          alert(`${fr1} is your friend now.`);
-
-          fetch("/fr_u", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ res_user: "ok", from: fr1, to: user }),
-          }).catch((err) => {
-            console.log(err);
-            alert("DB error");
-          });
-        });
-
-        rejectBtn.addEventListener("click", () => {
-          alert(`${fr1} is denied!`);
-
-          fetch("/fr_u", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ res_user: "no", from: fr1, to: user }),
-          }).catch((err) => {
-            console.log(err);
-            alert("DB error");
-          });
-        });
-      }, 0);
-    });
+let giver = () => {
+  fetch("/fr_await", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user }),
   })
-  .catch((err) => console.error(err));
+    .then((res) => res.json())
+    .then((data) => {
+      const awaitList = data.awaiter;
+
+      if (!awaitList || awaitList.length === 0) {
+        //console.log('no friend req yet');
+        return;
+      }
+
+      awaitList.forEach((fr1, index) => {
+        // Use friend name as unique id, replacing spaces with underscores
+        const requestId = `req-${fr1.replace(/\s+/g, "_")}`;
+        const acceptId = `accept-${fr1.replace(/\s+/g, "_")}`;
+        const rejectId = `reject-${fr1.replace(/\s+/g, "_")}`;
+
+        // Skip if this request is already shown
+        if (document.getElementById(requestId)) {
+          return;
+        }
+
+        ins.innerHTML += `
+          <div class="cleaner" id="${requestId}">
+            <div class="friend-request">
+              <span><strong>${fr1}</strong> sent you a friend request.</span><br><br>
+              <button class="btn-accept" id="${acceptId}">Accept</button>
+              <button class="btn-reject" id="${rejectId}">Reject</button>
+            </div>
+          </div>
+        `;
+
+        // Attach event listeners after elements added
+        setTimeout(() => {
+          const acceptBtn = document.getElementById(acceptId);
+          const rejectBtn = document.getElementById(rejectId);
+
+          if (acceptBtn) {
+            acceptBtn.addEventListener("click", () => {
+              alert(`${fr1} is your friend now.`);
+
+              fetch("/fr_u", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ res_user: "ok", from: fr1, to: user }),
+              }).catch((err) => {
+                console.log(err);
+                alert("DB error");
+              });
+
+              // Remove friend request element after accept
+              const el = document.getElementById(requestId);
+              if (el) el.remove();
+            });
+          }
+
+          if (rejectBtn) {
+            rejectBtn.addEventListener("click", () => {
+              alert(`${fr1} is denied!`);
+
+              fetch("/fr_u", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ res_user: "no", from: fr1, to: user }),
+              }).catch((err) => {
+                console.log(err);
+                console.log("DB error");
+              });
+
+              // Remove friend request element after reject
+              const el = document.getElementById(requestId);
+              if (el) el.remove();
+            });
+          }
+        }, 0);
+      });
+    })
+    .catch((err) => console.error(err));
+};
+
+// Call giver every 200ms
+setInterval(giver, 500);

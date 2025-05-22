@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI CHAT</title>
   <style>
-    /* Reset default styles */
+    /* Existing CSS remains unchanged */
     * {
       margin: 0;
       padding: 0;
@@ -14,9 +14,7 @@
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
-    /* Theme variables */
     :root {
-      /* Light Mode */
       --bg-primary: #f0f2f5;
       --bg-chat: #ffffff;
       --text-primary: #050505;
@@ -32,7 +30,6 @@
     }
 
     [data-theme="dark"] {
-      /* Dark Mode */
       --bg-primary: #18191a;
       --bg-chat: #242526;
       --text-primary: #e4e6eb;
@@ -48,7 +45,6 @@
     }
 
     [data-theme="blue"] {
-      /* Blue Theme */
       --bg-primary: #1e2a44;
       --bg-chat: #2a3b66;
       --text-primary: #d6e4ff;
@@ -63,7 +59,6 @@
       --shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
     }
 
-    /* Body styling */
     body {
       background-color: var(--bg-primary);
       color: var(--text-primary);
@@ -75,7 +70,6 @@
       padding: 10px;
     }
 
-    /* Main container */
     .chat-container {
       width: 100%;
       max-width: 700px;
@@ -88,7 +82,6 @@
       overflow: hidden;
     }
 
-    /* Navbar styling */
     .navbar {
       background-color: var(--bg-chat);
       padding: 15px 20px;
@@ -139,7 +132,6 @@
       display: none;
     }
 
-    /* Mobile Navbar */
     @media screen and (max-width: 768px) {
       .hamburger {
         display: flex;
@@ -186,7 +178,6 @@
       }
     }
 
-    /* Header */
     .chat-header {
       background-color: var(--bg-chat);
       color: var(--text-primary);
@@ -198,7 +189,6 @@
       position: relative;
     }
 
-    /* Messages container */
     .chat-messages {
       flex: 1;
       padding: 20px;
@@ -224,7 +214,6 @@
       border-radius: 3px;
     }
 
-    /* Message styling */
     .message {
       max-width: 70%;
       padding: 10px 15px;
@@ -250,7 +239,6 @@
       border-bottom-left-radius: 4px;
     }
 
-    /* Message timestamp */
     .message::after {
       content: attr(data-time);
       font-size: 0.75rem;
@@ -266,7 +254,6 @@
       right: auto;
     }
 
-    /* Animation for messages */
     @keyframes fadeIn {
       from {
         opacity: 0;
@@ -279,7 +266,6 @@
       }
     }
 
-    /* Input bar */
     .chat-input {
       background-color: var(--bg-chat);
       padding: 15px 20px;
@@ -290,7 +276,6 @@
       bottom: 0;
     }
 
-    /* Input field */
     #take {
       flex: 1;
       padding: 12px 15px;
@@ -307,7 +292,6 @@
       background-color: var(--bg-primary);
     }
 
-    /* Send button */
     #btn {
       padding: 12px 25px;
       background-color: var(--accent);
@@ -328,7 +312,6 @@
       transform: scale(0.95);
     }
 
-    /* Theme toggle button */
     .theme-toggle {
       position: absolute;
       top: 50%;
@@ -348,7 +331,6 @@
       background-color: #006bd6;
     }
 
-    /* Responsive design */
     @media (max-width: 480px) {
       .chat-container {
         height: 90vh;
@@ -374,25 +356,25 @@
       }
     }
 
-    /* Typing indicator */
     .chat-typing {
       display: flex;
       align-items: flex-end;
       margin: 12px;
     }
 
-    /* Optional: Improve visibility on very light backgrounds */
     body {
-      background: #202020; /* test background; remove/change as needed */
+      background: #202020;
     }
   </style>
 </head>
 
 <body>
   <div class="chat-container">
-    <!-- Navbar -->
-    <nav class="navbar">
-      <div class="logo">ChatApp</div>
+    <!-- Enhanced Navbar with Animations -->
+    <nav class="navbar" style="animation: slideIn 0.5s ease-out;">
+      <div class="logo" style="display: flex; align-items: center; transition: transform 0.3s ease;">
+        <span style="color: var(--accent); font-size: 1.8rem; margin-right: 5px;">Chat</span>App
+      </div>
       <input type="checkbox" id="menu-toggle">
       <label for="menu-toggle" class="hamburger">
         <span></span>
@@ -400,11 +382,11 @@
         <span></span>
       </label>
       <ul class="nav-links">
-        <li><a href="home.html">Home</a></li>
-        <li><a href="world.html">World-Chats</a></li>
-        <li><a href="about me ">About</a></li>
-        <li><a href="freinds.html">freinds</a></li>
-        <li><a href="Delete account">Delete account</a></li>
+        <li><a href="home.html" class="nav-link" style="display: flex; align-items: center; gap: 5px; transition: transform 0.2s ease;"><span>🏠</span>Home</a></li>
+        <li><a href="world.html" class="nav-link" style="display: flex; align-items: center; gap: 5px; transition: transform 0.2s ease;"><span>🌐</span>World-Chats</a></li>
+        <li><a href="about.html" class="nav-link" style="display: flex; align-items: center; gap: 5px; transition: transform 0.2s ease;"><span>ℹ️</span>About</a></li>
+        <li><a href="friends.html" class="nav-link" style="display: flex; align-items: center; gap: 5px; transition: transform 0.2s ease;"><span>👥</span>Friends</a></li>
+        <li><a href="#coming soon#idea#near%%po"  onclick="alert('this feature comming soon!')" class="nav-link" style="display: flex; align-items: center; gap: 5px; transition: transform 0.2s ease;"><span>^_^</span>Comming soon!</a></li>
       </ul>
     </nav>
     <!-- Header -->
@@ -455,8 +437,32 @@
       currentThemeIndex = (currentThemeIndex + 1) % themes.length;
       const newTheme = themes[currentThemeIndex];
       document.documentElement.setAttribute('data-theme', newTheme);
-      localStorage.setItem('theme', newTheme); // Save selected theme
+      localStorage.setItem('theme', newTheme);
     }
+
+    // Navbar animations
+    document.addEventListener('DOMContentLoaded', () => {
+      const logo = document.querySelector('.logo');
+      const navLinks = document.querySelectorAll('.nav-link');
+
+      // Logo hover effect
+      logo.addEventListener('mouseenter', () => {
+        logo.style.transform = 'scale(1.1)';
+      });
+      logo.addEventListener('mouseleave', () => {
+        logo.style.transform = 'scale(1)';
+      });
+
+      // Nav links hover effect
+      navLinks.forEach(link => {
+        link.addEventListener('mouseenter', () => {
+          link.style.transform = 'scale(1.05)';
+        });
+        link.addEventListener('mouseleave', () => {
+          link.style.transform = 'scale(1)';
+        });
+      });
+    });
   </script>
 
   <script defer src="js/world.js"></script>
