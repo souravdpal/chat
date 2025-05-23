@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>404 - Page Not Found | ChatApp</title>
+  <style>
+    /* Reset */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    /* Dark theme variables */
+    :root {
+      --bg-primary: #18191a;
+      --bg-chat: #242526;
+      --text-primary: #e4e6eb;
+      --text-secondary: #b0b3b8;
+      --accent: #00aaff;
+      --input-bg: #3a3b3c;
+      --border: #3a3b3c;
+      --shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+      --friend-list-bg: #242526;
+      --friend-item-bg: #2a2b2c;
+      --friend-item-hover: #3a3b3c;
+      --button-accent: #4caf50;
+      --button-accent-hover: #45a049;
+    }
+
+    /* Body styling */
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: clamp(1rem, 2vw, 2rem);
+      overflow: hidden;
+    }
+
+    /* Error container */
+    .error-container {
+      text-align: center;
+      max-width: clamp(300px, 80vw, 500px);
+      width: 100%;
+      padding: clamp(1rem, 3vw, 2rem);
+      background: var(--bg-chat);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+    }
+
+    .error-container h1 {
+      font-size: clamp(2rem, 6vw, 4rem);
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: clamp(0.5rem, 1.5vw, 1rem);
+    }
+
+    .error-container p {
+      font-size: clamp(0.9rem, 2vw, 1.2rem);
+      color: var(--text-secondary);
+      margin-bottom: clamp(1rem, 2.5vw, 1.5rem);
+    }
+
+    .error-container .home-btn {
+      display: inline-block;
+      padding: clamp(0.5rem, 1.5vw, 0.8rem) clamp(1rem, 3vw, 1.5rem);
+      background: var(--button-accent);
+      color: #fff;
+      text-decoration: none;
+      font-size: clamp(0.8rem, 1.8vw, 1rem);
+      font-weight: 600;
+      border-radius: 5px;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+
+    .error-container .home-btn:hover {
+      background: var(--button-accent-hover);
+      transform: scale(1.05);
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 480px) {
+      body {
+        padding: clamp(0.5rem, 1vw, 1rem);
+      }
+
+      .error-container {
+        max-width: clamp(250px, 90vw, 350px);
+        padding: clamp(0.8rem, 2vw, 1.5rem);
+      }
+
+      .error-container h1 {
+        font-size: clamp(1.5rem, 5vw, 3rem);
+        margin-bottom: clamp(0.4rem, 1vw, 0.8rem);
+      }
+
+      .error-container p {
+        font-size: clamp(0.8rem, 1.8vw, 1rem);
+        margin-bottom: clamp(0.8rem, 2vw, 1rem);
+      }
+
+      .error-container .home-btn {
+        padding: clamp(0.4rem, 1vw, 0.6rem) clamp(0.8rem, 2vw, 1rem);
+        font-size: clamp(0.7rem, 1.5vw, 0.9rem);
+      }
+    }
+
+    @media (max-width: 768px) and (min-width: 481px) {
+      .error-container {
+        max-width: clamp(300px, 85vw, 400px);
+        padding: clamp(1rem, 2.5vw, 1.8rem);
+      }
+
+      .error-container h1 {
+        font-size: clamp(1.8rem, 5.5vw, 3.5rem);
+      }
+
+      .error-container p {
+        font-size: clamp(0.85rem, 1.9vw, 1.1rem);
+      }
+
+      .error-container .home-btn {
+        padding: clamp(0.45rem, 1.2vw, 0.7rem) clamp(0.9rem, 2.5vw, 1.2rem);
+        font-size: clamp(0.75rem, 1.6vw, 0.95rem);
+      }
+    }
+
+    @media (min-width: 1200px) {
+      .error-container {
+        max-width: clamp(400px, 70vw, 600px);
+        padding: clamp(1.5rem, 4vw, 3rem);
+      }
+
+      .error-container h1 {
+        font-size: clamp(2.5rem, 7vw, 4.5rem);
+        margin-bottom: clamp(0.8rem, 2vw, 1.5rem);
+      }
+
+      .error-container p {
+        font-size: clamp(1rem, 2.2vw, 1.3rem);
+        margin-bottom: clamp(1.2rem, 3vw, 2rem);
+      }
+
+      .error-container .home-btn {
+        padding: clamp(0.6rem, 1.8vw, 1rem) clamp(1.2rem, 3.5vw, 2rem);
+        font-size: clamp(0.9rem, 2vw, 1.2rem);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="error-container">
+    <h1>404</h1>
+    <p>Oops! The page you're looking for doesn't exist.</p>
+    <a href="home.html" class="home-btn">Back to Home</a>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/user_stat.js"></script>
+
+</body>
+</html>

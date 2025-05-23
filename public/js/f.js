@@ -122,3 +122,73 @@ let ans_send_ans = () => {
 };
 
 setInterval(ans_send_ans, 500);
+// Function to fetch status for a single user and return the status string
+async function fetchUserStatus(username) {
+  try {
+    const response = await fetch(`/st?user=${encodeURIComponent(username)}`);
+    if (!response.ok) {
+      console.warn(`Status fetch failed for ${username}`, response.status);
+      return null;
+    }
+    const data = await response.json();
+    return data.st; // e.g. "online" or "offline"
+  } catch (error) {
+    console.error("Error fetching status for", username, error);
+    return null;
+  }
+}
+
+// Update friend status dots based on fetched status
+async function updateFriendStatuses() {
+  // Fetch status for each friend in parallel
+  const statusPromises = friends.map(fetchUserStatus);
+  const statuses = await Promise.all(statusPromises);
+
+  // Now update DOM elements
+  const friendDivs = listContainer.querySelectorAll(".friend");
+  friendDivs.forEach((friendDiv, i) => {
+    const statusDot = friendDiv.querySelector(".status-dot");
+    const status = statuses[i];
+
+    if (status === true) {
+      statusDot.classList.add("status-online");
+      statusDot.classList.remove("status-offline");
+    } else {
+      statusDot.classList.add("status-offline");
+      statusDot.classList.remove("status-online");
+    }
+  });
+}
+
+// Modify renderFriends to add default offline class first
+function renderFriends(filter = "") {
+  listContainer.innerHTML = "";
+
+  const filtered = friends.filter((friend) =>
+    friend.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  if (filtered.length === 0) {
+    listContainer.innerHTML = `<p class="empty-message">No friends found.</p>`;
+    return;
+  }
+
+  filtered.forEach((friend) => {
+    const friendDiv = document.createElement("div");
+    friendDiv.className = "friend";
+
+    friendDiv.innerHTML = `
+      <div class="avatar">${getInitials(friend)}</div>
+      <span>${friend}</span>
+      <div class="status-dot status-offline"></div> <!-- default offline -->
+    `;
+
+    listContainer.appendChild(friendDiv);
+  });
+
+  // After rendering, update statuses
+  updateFriendStatuses();
+}
+
+// Call updateFriendStatuses periodically to refresh status dots
+setInterval(updateFriendStatuses, 5000); // every 10 seconds

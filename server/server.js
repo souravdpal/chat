@@ -14,6 +14,11 @@ const http = require("http");
 const server = http.createServer(app);
 const { Server } = require("socket.io");
 const io = new Server(server);
+//const router  = exp.Router();
+//routes
+
+//const st_user = require('./status');
+//st_user(io);
 
 app.use(cors());
 app.use(exp.json());
@@ -23,7 +28,7 @@ app.use(exp.static(path.join(__dirname, "..", "public")));
 app.use(exp.static(path.join(__dirname, "..", "data")));
 
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "..", "public", "signup.html"));
+  res.sendFile(path.join(__dirname, "..", "public", "welcome.html"));
 });
 
 mongo
@@ -166,6 +171,7 @@ let sock = () => {
   });
 };
 sock();
+
 app.post("/get/send", async (req, res) => {
   let { from, to } = req.body;
   try {
@@ -173,11 +179,14 @@ app.post("/get/send", async (req, res) => {
       { user: to },
       { user: 1, name: 1, key1: 1, _id: 0, fr_await: 1 }
     );
-    console.log(chk_fr.user);
+
     if (!chk_fr) {
       console.log("error user not found by server");
       return res.status(200).json({ msg: `Failed , ${to} not exist ` });
     }
+
+    console.log(chk_fr.user); // <-- moved here after null check
+
     if (chk_fr.fr_await.includes(from)) {
       return console.log("user exist already in wait list");
     }
@@ -196,9 +205,11 @@ app.post("/get/send", async (req, res) => {
       res.status(200).json({ msg: `Failed , ${to} not exist ` });
     }
   } catch (err) {
-    console.log(err);
+    console.log("Server error in /get/send:", err);
+    res.status(500).json({ msg: "Internal server error" });
   }
 });
+
 app.post("/fr_await", async (req, res) => {
   let { user, i } = req.body;
   //console.log(i - i);
@@ -277,10 +288,80 @@ app.delete("/dl/:username", async (req, res) => {
       return res.status(404).json({ msg: "User not found" });
     }
 
-    return res.status(200).json({ msg: `Successfully deleted user '${username}'` });
+    return res
+      .status(200)
+      .json({ msg: `Successfully deleted user '${username}'` });
   } catch (error) {
     console.error("Error during user deletion:", error);
-    return res.status(500).json({ msg: "Server error during account deletion" });
+    return res
+      .status(500)
+      .json({ msg: "Server error during account deletion" });
+  }
+});
+
+const stat = () => {
+  io.on("connection", async (socket) => {
+    console.log(`✅ User connected: ${socket.id}`);
+
+    let user_stat1 = null;
+    
+    // Listen for 'chat message' events from clients
+    socket.on("chat message", async (data) => {
+      console.log(`📩 Message from user: ${data.user}`);
+      user_stat1 = data.user;
+      console.log(user_stat1)
+      try {
+        await user_cred_data.findOneAndUpdate(
+          { user: user_stat1 },
+          { $set: { status: true } }
+        );
+        console.log(`User ${user_stat1} status set to true`);
+      } catch (err) {
+        console.error("Error updating user status:", err);
+      }
+    });
+
+    socket.on("disconnect", async () => {
+      console.log(`❌ User disconnected: ${socket.id}`);
+
+      if (user_stat1) {
+        try {
+          await user_cred_data.findOneAndUpdate(
+            { user: user_stat1 },
+            { $set: { status: false } }
+          );
+          console.log(`User ${user_stat1} status set to false`);
+        } catch (err) {
+          console.error("Error updating user status on disconnect:", err);
+        }
+      }
+    });
+  });
+};
+
+stat();
+
+app.get("/st", async (req, res) => {
+  let user = req.query.user; // get from query params
+  
+  if (!user) {
+    return res.status(400).json({ error: "User query parameter is required" });
+  }
+
+  try {
+    let user_state = await user_cred_data.findOne(
+      { user: user },
+      { status: 1, _id: 0 }
+    );
+
+    if (!user_state) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ st: user_state.status });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
