@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Welcome - ChatApp</title>
+    <style>
+      /* Reset */
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+
+      /* Dark theme variables */
+      :root {
+        --bg-primary: #18191a;
+        --bg-chat: #242526;
+        --text-primary: #e4e6eb;
+        --text-secondary: #b0b3b8;
+        --accent: #00aaff;
+        --input-bg: #3a3b3c;
+        --border: #3a3b3c;
+        --shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        --friend-list-bg: #242526;
+        --friend-item-bg: #2a2b2c;
+        --friend-item-hover: #3a3b3c;
+        --button-accent: #4caf50;
+        --button-accent-hover: #45a049;
+      }
+
+      /* Body styling */
+      body {
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: clamp(0.5rem, 2vw, 1rem);
+        overflow: hidden;
+      }
+
+      /* Welcome container */
+      .welcome-container {
+        text-align: center;
+        max-width: clamp(200px, 80vw, 450px);
+        width: 100%;
+        padding: clamp(1rem, 3vw, 2rem);
+      }
+
+      .welcome-container h1 {
+        font-size: clamp(1.2rem, 4vw, 2.5rem);
+        font-weight: 700;
+        margin-bottom: clamp(0.8rem, 2.5vw, 1.5rem);
+        color: var(--text-primary);
+        line-height: 1.2;
+      }
+
+      /* Loading bar */
+      .loading-bar-container {
+        width: 100%;
+        height: clamp(6px, 1.2vw, 14px);
+        background: var(--input-bg);
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+        margin-bottom: clamp(0.5rem, 1.5vw, 1rem);
+      }
+
+      .loading-bar {
+        width: 0%;
+        height: 100%;
+        background: var(--accent);
+        transition: width 3s ease-in-out;
+      }
+
+      .loading-bar.animate {
+        width: 100%;
+      }
+
+      /* Loading message */
+      .loading-message {
+        font-size: clamp(0.7rem, 2vw, 1.1rem);
+        color: var(--text-secondary);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      .loading-message.redirecting {
+        opacity: 1;
+      }
+
+      /* Responsive adjustments */
+      @media (max-width: 480px) {
+        body {
+          padding: clamp(0.3rem, 1vw, 0.5rem);
+        }
+
+        .welcome-container {
+          max-width: clamp(180px, 90vw, 300px);
+          padding: clamp(0.5rem, 2vw, 1rem);
+        }
+
+        .welcome-container h1 {
+          font-size: clamp(1rem, 3.5vw, 1.5rem);
+          margin-bottom: clamp(0.5rem, 2vw, 0.8rem);
+        }
+
+        .loading-bar-container {
+          height: clamp(5px, 1vw, 8px);
+          margin-bottom: clamp(0.3rem, 1vw, 0.5rem);
+        }
+
+        .loading-bar {
+          transition: width 2.5s ease-in-out; /* Slightly faster for small screens */
+        }
+
+        .loading-message {
+          font-size: clamp(0.6rem, 1.8vw, 0.9rem);
+        }
+      }
+
+      @media (max-width: 768px) and (min-width: 481px) {
+        .welcome-container {
+          max-width: clamp(250px, 85vw, 400px);
+          padding: clamp(0.8rem, 2.5vw, 1.5rem);
+        }
+
+        .welcome-container h1 {
+          font-size: clamp(1.2rem, 3.8vw, 1.8rem);
+          margin-bottom: clamp(0.6rem, 2.2vw, 1rem);
+        }
+
+        .loading-bar-container {
+          height: clamp(6px, 1.1vw, 10px);
+          margin-bottom: clamp(0.4rem, 1.2vw, 0.7rem);
+        }
+
+        .loading-message {
+          font-size: clamp(0.65rem, 1.9vw, 1rem);
+        }
+      }
+
+      @media (max-width: 1024px) and (min-width: 769px) {
+        .welcome-container {
+          max-width: clamp(300px, 80vw, 500px);
+          padding: clamp(1rem, 3vw, 2rem);
+        }
+
+        .welcome-container h1 {
+          font-size: clamp(1.5rem, 4vw, 2rem);
+          margin-bottom: clamp(0.8rem, 2.5vw, 1.2rem);
+        }
+
+        .loading-bar-container {
+          height: clamp(7px, 1.3vw, 12px);
+          margin-bottom: clamp(0.5rem, 1.5vw, 0.8rem);
+        }
+
+        .loading-message {
+          font-size: clamp(0.8rem, 2vw, 1.1rem);
+        }
+      }
+
+      @media (min-width: 1440px) {
+        .welcome-container {
+          max-width: clamp(350px, 70vw, 600px);
+          padding: clamp(1.5rem, 4vw, 3rem);
+        }
+
+        .welcome-container h1 {
+          font-size: clamp(2rem, 4.5vw, 3rem);
+          margin-bottom: clamp(1rem, 3vw, 2rem);
+        }
+
+        .loading-bar-container {
+          height: clamp(8px, 1.5vw, 16px);
+          margin-bottom: clamp(0.8rem, 2vw, 1.5rem);
+        }
+
+        .loading-message {
+          font-size: clamp(0.9rem, 2.2vw, 1.3rem);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="welcome-container">
+      <h1>Welcome to ChatApp</h1>
+      <div class="loading-bar-container">
+        <div class="loading-bar" id="loadingBar"></div>
+      </div>
+      <p class="loading-message" id="loadingMessage">Loading, redirecting...</p>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const loadingBar = document.getElementById("loadingBar");
+        const loadingMessage = document.getElementById("loadingMessage");
+
+        // Start the loading bar animation
+        setTimeout(() => {
+          loadingBar.classList.add("animate");
+        }, 100);
+
+        // Show "redirecting" message when loading bar completes
+        setTimeout(() => {
+          loadingMessage.classList.add("redirecting");
+        }, 3000); // Matches the 3s animation duration
+
+        // Optional: Redirect after animation completes
+        setTimeout(() => {
+          const name = localStorage.getItem("user");
+
+          if (name === null) {
+            window.location.href = "login.html";
+          } else {
+            window.location.href = "home.html";
+          }
+          // Replace with your target page
+        }, 3500); // Slightly after the message appears
+      });
+    </script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/user_stat.js"></script>
+  </body>
+</html>

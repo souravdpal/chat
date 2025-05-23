@@ -12,7 +12,7 @@ let user = localStorage.getItem("user");
 // Show join message once when the script runs
 let joiner = document.getElementById("join");
 joiner.innerHTML += `${name1} joined, welcome to chat!`;
-ins.innerHTML = `<div class='message other'> enter "/" for guide </div>`;
+ins.innerHTML = `<div class='message other'>hey ${name1} how are you , enter "/" so i can guide you thorugly!</div>`;
 
 // Main function to handle sending and receiving
 let input = document.getElementById("take");
@@ -171,7 +171,7 @@ let giver = () => {
   fetch("/fr_await", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user }),
+    body: JSON.stringify({ user , i:1 }),
   })
     .then((res) => res.json())
     .then((data) => {
@@ -252,4 +252,4 @@ let giver = () => {
 };
 
 // Call giver every 200ms
-setInterval(giver, 500);
+setInterval(giver, 900);

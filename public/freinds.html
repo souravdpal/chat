@@ -1,307 +1,328 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Friends List</title>
-  <style>
-    /* Reset */
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #121212;
-      color: #eee;
-      margin: 0;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-
-    /* Navbar styling */
-    .navbar {
-      background-color: #1e1e1e;
-      padding: 15px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      color: #eee;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.8);
-      margin-bottom: 20px;
-    }
-
-    .navbar .logo {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #f0f0f0;
-    }
-
-    .nav-links {
-      list-style: none;
-      display: flex;
-      gap: 20px;
-    }
-
-    .nav-links li a {
-      color: #eee;
-      text-decoration: none;
-      font-size: 1rem;
-      transition: color 0.3s ease;
-    }
-
-    .nav-links li a:hover {
-      color: #4caf50;
-    }
-
-    .hamburger {
-      display: none;
-      flex-direction: column;
-      cursor: pointer;
-    }
-
-    .hamburger span {
-      width: 25px;
-      height: 3px;
-      background-color: #eee;
-      margin: 2px 0;
-      transition: all 0.3s ease;
-    }
-
-    #menu-toggle {
-      display: none;
-    }
-
-    /* Mobile Navbar */
-    @media screen and (max-width: 768px) {
-      .hamburger {
-        display: flex;
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Friends List</title>
+    <style>
+      /* Reset */
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
       }
 
-      .nav-links {
-        display: none;
-        width: 100%;
-        position: absolute;
-        top: 60px;
-        left: 0;
-        background-color: #1e1e1e;
-        flex-direction: column;
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: #121212;
+        color: #eee;
         padding: 20px;
-        text-align: center;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.8);
-        z-index: 1000;
-      }
-
-      .nav-links li {
-        margin: 10px 0;
-      }
-
-      #menu-toggle:checked ~ .nav-links {
         display: flex;
-      }
-
-      #menu-toggle:checked ~ .hamburger span:nth-child(1) {
-        transform: rotate(45deg) translate(5px, 5px);
-      }
-
-      #menu-toggle:checked ~ .hamburger span:nth-child(2) {
-        opacity: 0;
-      }
-
-      #menu-toggle:checked ~ .hamburger span:nth-child(3) {
-        transform: rotate(-45deg) translate(7px, -7px);
-      }
-    }
-
-    @media screen and (min-width: 769px) {
-      .nav-links {
-        display: flex !important;
-      }
-    }
-
-    h1 {
-      text-align: center;
-      margin-bottom: 20px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      color: #f0f0f0;
-    }
-
-    /* Container for inputs */
-    .input-container {
-      max-width: 450px;
-      margin: 0 auto 30px auto;
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-
-    input[type="text"], input[type="search"] {
-      flex: 1 1 200px;
-      padding: 12px 16px;
-      font-size: 16px;
-      border-radius: 6px;
-      border: none;
-      background: #333;
-      color: #eee;
-      outline: none;
-      transition: background-color 0.3s ease;
-    }
-    input[type="text"]:focus, input[type="search"]:focus {
-      background: #444;
-    }
-
-    button#add-btn {
-      padding: 12px 20px;
-      background: #4caf50;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-      flex-shrink: 0;
-    }
-    button#add-btn:hover {
-      background: #45a049;
-    }
-
-    /* Friends list container */
-    .friends-list {
-      max-width: 450px;
-      margin: 0 auto;
-      background: #1e1e1e;
-      border-radius: 12px;
-      padding: 15px;
-      box-shadow: 0 0 12px rgba(0,0,0,0.8);
-      min-height: 300px;
-    }
-
-    /* Single friend item */
-    .friend {
-      display: flex;
-      align-items: center;
-      padding: 12px 15px;
-      border-bottom: 1px solid #333;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-      border-radius: 8px;
-      margin-bottom: 8px;
-      user-select: none;
-    }
-    .friend:last-child {
-      margin-bottom: 0;
-      border-bottom: none;
-    }
-    .friend:hover {
-      background: #333;
-    }
-
-    /* Avatar circle with initials */
-    .avatar {
-      width: 40px;
-      height: 40px;
-      background: #555;
-      color: #eee;
-      border-radius: 50%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-weight: 700;
-      font-size: 18px;
-      margin-right: 15px;
-      flex-shrink: 0;
-      user-select: none;
-      box-shadow: 0 0 5px rgba(0,0,0,0.6);
-    }
-
-    /* Status dot */
-    .status-dot {
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      margin-left: auto;
-      box-shadow: 0 0 6px rgba(0,0,0,0.7);
-      background: gray;
-      transition: background-color 0.3s ease;
-    }
-    .status-online {
-      background: #4caf50;
-      box-shadow: 0 0 8px #4caf50;
-    }
-    .status-offline {
-      background: #888;
-      box-shadow: none;
-    }
-
-    /* Empty list message */
-    .empty-message {
-      text-align: center;
-      color: #888;
-      font-style: italic;
-      padding: 40px 0;
-    }
-
-    /* Responsive for smaller devices */
-    @media (max-width: 480px) {
-      .input-container {
         flex-direction: column;
-        gap: 15px;
+        min-height: 100vh;
+      }
+
+      /* Navbar styling */
+      .navbar {
+        background-color: #1e1e1e;
+        padding: 15px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.8);
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+      }
+
+      .navbar .logo {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #f0f0f0;
+      }
+
+      .nav-links {
+        list-style: none;
+        display: flex;
+        gap: 20px;
+      }
+
+      .nav-links li a {
+        color: #eee;
+        text-decoration: none;
+        font-size: 1rem;
+        transition: color 0.3s ease;
+      }
+
+      .nav-links li a:hover {
+        color: #4caf50;
+      }
+
+      .hamburger {
+        display: none;
+        flex-direction: column;
+        cursor: pointer;
+      }
+
+      .hamburger span {
+        width: 25px;
+        height: 3px;
+        background-color: #eee;
+        margin: 3px 0;
+        transition: all 0.3s ease;
+      }
+
+      #menu-toggle {
+        display: none;
+      }
+
+      /* Mobile Navbar */
+      @media (max-width: 768px) {
+        .hamburger {
+          display: flex;
+        }
+
+        .nav-links {
+          display: none;
+          position: absolute;
+          top: 60px;
+          left: 0;
+          flex-direction: column;
+          width: 100%;
+          background: #1e1e1e;
+          padding: 15px 0;
+          z-index: 10;
+          text-align: center;
+          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.8);
+        }
+
+        .nav-links li {
+          margin: 10px 0;
+        }
+
+        #menu-toggle:checked ~ .nav-links {
+          display: flex;
+        }
+
+        #menu-toggle:checked ~ .hamburger span:nth-child(1) {
+          transform: rotate(45deg) translate(5px, 5px);
+        }
+
+        #menu-toggle:checked ~ .hamburger span:nth-child(2) {
+          opacity: 0;
+        }
+
+        #menu-toggle:checked ~ .hamburger span:nth-child(3) {
+          transform: rotate(-45deg) translate(7px, -7px);
+        }
+      }
+
+      /* Header */
+      h1 {
+        text-align: center;
+        margin-bottom: 20px;
+        font-weight: 700;
+        color: #f0f0f0;
+      }
+
+      /* Input container */
+      .input-container {
+        max-width: 1000px;
+        margin: 0 auto 20px auto;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: center;
+      }
+
+      input[type="text"],
+      input[type="search"] {
+        flex: 1 1 250px;
+        padding: 12px 16px;
+        font-size: 16px;
+        border-radius: 6px;
+        border: none;
+        background: #333;
+        color: #eee;
+        outline: none;
+        transition: background-color 0.3s ease;
+      }
+
+      input[type="text"]:focus,
+      input[type="search"]:focus {
+        background: #444;
       }
 
       button#add-btn {
-        width: 100%;
+        padding: 12px 20px;
+        background: #4caf50;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
       }
-    }
-  </style>
-</head>
-<body>
-  <!-- Navbar -->
-  <nav class="navbar">
-    <div class="logo">ChatApp</div>
-    <input type="checkbox" id="menu-toggle">
-    <label for="menu-toggle" class="hamburger">
-      <span></span>
-      <span></span>
-      <span></span>
-    </label>
+
+      button#add-btn:hover {
+        background: #45a049;
+      }
+
+      /* Friends List */
+      .friends-list {
+        max-width: 1000px;
+        width: 100%;
+        margin: 0 auto;
+        background: #1e1e1e;
+        border-radius: 12px;
+        padding: 15px;
+        box-shadow: 0 0 12px rgba(0, 0, 0, 0.8);
+        min-height: 300px;
+      }
+
+      /* Friend Item */
+      .friend {
+        display: flex;
+        align-items: center;
+        padding: 12px 15px;
+        border-bottom: 1px solid #333;
+        cursor: pointer;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        transition: background-color 0.3s ease;
+      }
+
+      .friend:last-child {
+        margin-bottom: 0;
+        border-bottom: none;
+      }
+
+      .friend:hover {
+        background: #333;
+      }
+
+      /* Avatar */
+      .avatar {
+        width: 40px;
+        height: 40px;
+        background: #555;
+        color: #eee;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-weight: 700;
+        font-size: 18px;
+        margin-right: 15px;
+        flex-shrink: 0;
+        box-shadow: 0 0 5px rgba(0, 0, 0, 0.6);
+      }
+
+      /* Status Dot */
+      .status-dot {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        margin-left: auto;
+        background: gray;
+        transition: background-color 0.3s ease;
+        box-shadow: 0 0 6px rgba(0, 0, 0, 0.7);
+      }
+
+      .status-online {
+        background: #4caf50;
+        box-shadow: 0 0 8px #4caf50;
+      }
+
+      .status-offline {
+        background: #888;
+        box-shadow: none;
+      }
+
+      /* Empty message */
+      .empty-message {
+        text-align: center;
+        color: #888;
+        font-style: italic;
+        padding: 40px 0;
+      }
+
+      /* Responsive fixes */
+      @media (max-width: 480px) {
+        .input-container {
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        button#add-btn {
+          width: 100%;
+        }
+
+        .navbar {
+          padding: 10px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Navbar -->
+    <nav class="navbar">
+      <div class="logo">ChatApp</div>
+      <input type="checkbox" id="menu-toggle" />
+      <label for="menu-toggle" class="hamburger">
+        <span></span>
+        <span></span>
+        <span></span>
+      </label>
       <ul class="nav-links">
         <li><a href="home.html">Home</a></li>
         <li><a href="world.html">World-Chats</a></li>
         <li><a href="aboutme.html ">About</a></li>
         <li><a href="freinds.html">freinds</a></li>
-        <li onclick="user_rm()"><a href="#dlt#delte#server#mongo">Delete account</a></li>
+        <li onclick="user_rm()">
+          <a href="#dlt#delte#server#mongo">Delete account</a>
+        </li>
       </ul>
-  </nav>
+    </nav>
 
-  <h1>Friends List</h1>
+    <h1>Friends List</h1>
 
-  <div class="input-container">
-    <input type="text" id="add" placeholder="Add friend username..." autocomplete="off" />
-    <button id="add-btn" aria-label="Add Friend">Add</button>
-  </div>
+    <div class="input-container">
+      <input
+        type="text"
+        id="add"
+        placeholder="Add friend username..."
+        autocomplete="off"
+      />
+      <button id="add-btn" aria-label="Add Friend">Add</button>
+    </div>
 
-  <div class="input-container">
-    <input type="search" id="search" placeholder="Search friends..." autocomplete="off" />
-  </div>
+    <div class="input-container">
+      <input
+        type="search"
+        id="search"
+        placeholder="Search friends..."
+        autocomplete="off"
+      />
+    </div>
 
-  <div class="friends-list" id="list" style="width: 1000px;">
-    <p class="empty-message">No friends yet. Add some!</p>
-  </div>
-  <style>.friends-list {
-  max-width: 450px;
-  width: 100%;
-  margin: 0 auto;
-  background: #1e1e1e;
-  border-radius: 12px;
-  padding: 15px;
-  box-shadow: 0 0 12px rgba(0,0,0,0.8);
-  min-height: 300px;
-}</style>
-  <script defer src="/js/f.js"></script>
-  <script defer src="/js/dlt.js"></script>
-</body>
+    <div class="friends-list" id="list" style="width: 1000px">
+      <p class="empty-message">No friends yet. Add some!</p>
+    </div>
+    <style>
+      .friends-list {
+        max-width: 450px;
+        width: 100%;
+        margin: 0 auto;
+        background: #1e1e1e;
+        border-radius: 12px;
+        padding: 15px;
+        box-shadow: 0 0 12px rgba(0, 0, 0, 0.8);
+        min-height: 300px;
+      }
+    </style>
+    <script defer src="/js/f.js"></script>
+    <script defer src="/js/dlt.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/user_stat.js"></script>
+  </body>
 </html>
