@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Modern Voice Call Interface</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+  <style>
+    /* Reset default styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    /* Theme variables */
+    :root {
+      --bg-primary: #f5f7fa;
+      --bg-call: #ffffff;
+      --text-primary: #1a1a1a;
+      --text-secondary: #6b7280;
+      --accent: #f43f5e;
+      --accent-secondary: #10b981;
+      --mute-bg: #e5e7eb;
+      --mute-icon: #22c55e;
+      --end-call-bg: #f43f5e;
+      --shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      --glow: 0 0 20px rgba(244, 63, 94, 0.5);
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #1f2937;
+      --bg-call: #374151;
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --accent: #f87171;
+      --accent-secondary: #34d399;
+      --mute-bg: #6b7280;
+      --mute-icon: #4ade80;
+      --end-call-bg: #f87171;
+      --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      --glow: 0 0 20px rgba(248, 113, 113, 0.5);
+    }
+
+    body {
+      background: linear-gradient(135deg, var(--bg-primary), color-mix(in srgb, var(--bg-primary) 90%, #fff));
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: all 0.3s ease;
+      overflow: hidden;
+    }
+
+    .call-container {
+      width: 100%;
+      max-width: 500px;
+      height: 100vh;
+      max-height: 800px;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(15px);
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2rem;
+      box-shadow: var(--shadow);
+      animation: fadeIn 0.8s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .call-header {
+      text-align: center;
+      color: var(--text-primary);
+      margin-bottom: 2rem;
+    }
+
+    .call-header h2 {
+      font-size: clamp(1.5rem, 5vw, 1.8rem);
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.5rem;
+    }
+
+    .call-header p {
+      font-size: clamp(0.9rem, 3vw, 1rem);
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .voice-circle {
+      position: relative;
+      width: clamp(150px, 40vw, 200px);
+      height: clamp(150px, 40vw, 200px);
+      background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: var(--glow);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 0.7; }
+      50% { transform: scale(1.1); opacity: 1; }
+      100% { transform: scale(1); opacity: 0.7; }
+    }
+
+    .voice-circle::before,
+    .voice-circle::after {
+      content: '';
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border: 2px solid var(--accent);
+      border-radius: 50%;
+      animation: ripple 3s ease-in-out infinite;
+      opacity: 0;
+    }
+
+    .voice-circle::after {
+      animation-delay: 1s;
+    }
+
+    @keyframes ripple {
+      0% { transform: scale(1); opacity: 0.5; }
+      100% { transform: scale(1.5); opacity: 0; }
+    }
+
+    .voice-inner {
+      width: clamp(90px, 24vw, 120px);
+      height: clamp(90px, 24vw, 120px);
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      animation: voiceWave 1.5s ease-in-out infinite;
+    }
+
+    @keyframes voiceWave {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+
+    .call-controls {
+      display: flex;
+      gap: clamp(0.5rem, 2vw, 1rem);
+      margin-top: 2rem;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      padding: 0.5rem 1rem;
+      border-radius: 2rem;
+      box-shadow: var(--shadow);
+    }
+
+    .control-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: clamp(60px, 15vw, 80px);
+      height: clamp(40px, 10vw, 50px);
+      border-radius: 1.5rem;
+      border: none;
+      font-size: clamp(1.5rem, 5vw, 2rem);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .control-btn i {
+      transition: all 0.3s ease;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+    }
+
+    .control-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 15px var(--accent);
+    }
+
+    .control-btn:active {
+      transform: scale(0.95);
+    }
+
+    #mute-btn {
+      background: var(--mute-bg);
+      color: var(--text-primary);
+    }
+
+    #mute-btn i {
+      color: var(--mute-icon);
+    }
+
+    #mute-btn.active {
+      background: var(--accent-secondary);
+      color: #ffffff;
+    }
+
+    #mute-btn.active i {
+      color: #ffffff;
+    }
+
+    #end-call-btn {
+      background: var(--end-call-bg);
+      color: #ffffff;
+    }
+
+    #end-call-btn i {
+      color: #ffffff;
+    }
+
+    .theme-toggle {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: var(--accent);
+      color: #ffffff;
+      border: none;
+      padding: clamp(0.4rem, 2vw, 0.5rem) clamp(0.8rem, 3vw, 1rem);
+      border-radius: 1rem;
+      font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .theme-toggle:hover {
+      background: color-mix(in srgb, var(--accent) 80%, #fff);
+      transform: scale(1.05);
+      box-shadow: 0 0 15px var(--accent);
+    }
+
+    @media (max-width: 480px) {
+      .call-container {
+        width: 100%;
+        height: 100vh;
+        border-radius: 0;
+        padding: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="call-container" id="call-ui">
+    <button class="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
+    <div class="call-header">
+      <h2>Maya</h2>
+      <p id="call-timer">00:01</p>
+    </div>
+    <div class="voice-circle">
+      <div class="voice-inner"></div>
+    </div>
+    <div class="call-controls">
+      <button class="control-btn" id="mute-btn" title="Mute">
+        <i class="fa-solid fa-microphone-lines"></i>
+      </button>
+      <button class="control-btn" id="end-call-btn" title="End Call">
+        <i class="fa-solid fa-phone-volume"></i>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const themes = ['light', 'dark'];
+    let currentThemeIndex = 0;
+
+    // Apply saved theme on load
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      currentThemeIndex = themes.indexOf(savedTheme);
+    }
+
+    function toggleTheme() {
+      currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+      const newTheme = themes[currentThemeIndex];
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+    }
+
+    // Mute button toggle
+    const muteBtn = document.getElementById('mute-btn');
+    muteBtn.addEventListener('click', () => {
+      muteBtn.classList.toggle('active');
+      const icon = muteBtn.querySelector('i');
+      icon.classList.toggle('fa-microphone-lines');
+      icon.classList.toggle('fa-microphone-slash');
+    });
+
+  
+    const endCallBtn = document.getElementById('end-call-btn');
+    endCallBtn.addEventListener('click', () => {
+      alert('Call Ended');
+      window.location.href ='freinds.html'
+     
+    });
+  </script>
+</body>
+</html>
