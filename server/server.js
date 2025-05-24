@@ -270,7 +270,7 @@ app.post("/get_fr", async (req, res) => {
   //console.log(user);
   const give_fr_lst = await user_cred_data.find(
     { user: user },
-    { _id: 0, f: 1, user: 1 }
+    { _id: 1, f: 1, user: 1 }
   );
   let fr_lst_user = give_fr_lst[0].f;
   res.status(200).json({ fr: fr_lst_user });
@@ -306,7 +306,7 @@ const stat = () => {
     let user_stat1 = null;
     
     // Listen for 'chat message' events from clients
-    socket.on("chat message", async (data) => {
+    socket.on("chat message2", async (data) => {
       console.log(`📩 Message from user: ${data.user}`);
       user_stat1 = data.user;
       console.log(user_stat1)
@@ -364,6 +364,34 @@ app.get("/st", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+// Example using Mongoose
+app.get('/ct/:username', async (req, res) => {
+  const { username } = req.params;
+
+  try {
+    const user = await User.findOne({ username }); // Find by username
+
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    res.json({
+      _id: user._id,
+      username: user.username,
+      isOnline: user.isOnline || false, // Add this field in DB schema
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
+
+
+
+
+
+
+
 
 server.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);

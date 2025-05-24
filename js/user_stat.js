@@ -7,7 +7,7 @@ socket.on("connect", () => {
   const user1 = localStorage.getItem("user");
   if (user1) {
     console.log("📤 Emitting user on connect:", user1);
-    socket.emit("chat message", { user: user1 });
+    socket.emit("chat message2", { user: user1 });
   } else {
     console.warn("⚠️ No user found in localStorage");
   }
@@ -17,7 +17,7 @@ socket.on("connect", () => {
 function sendMessage(user) {
   if (user) {
     console.log("📤 Emitting manual message:", user);
-    socket.emit("chat message", { user });
+    socket.emit("chat message2", { user });
   } else {
     console.warn("⚠️ No user provided");
   }
