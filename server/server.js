@@ -299,38 +299,58 @@ app.delete("/dl/:username", async (req, res) => {
   }
 });
 
+const userSocketMap1= {};
+
 const stat = () => {
   io.on("connection", async (socket) => {
     console.log(`✅ User connected: ${socket.id}`);
-
     let user_stat1 = null;
-    
-    // Listen for 'chat message' events from clients
-    socket.on("chat message2", async (data) => {
-      console.log(`📩 Message from user: ${data.user}`);
+
+    socket.on("auth", async (data) => {
       user_stat1 = data.user;
-      console.log(user_stat1)
+      userSocketMap1[user_stat1] = socket.id; // Map user to socket ID
+      console.log(`Authenticated user: ${user_stat1}`);
       try {
         await user_cred_data.findOneAndUpdate(
           { user: user_stat1 },
-          { $set: { status: true } }
+          { $set: { status: true } },
+          { upsert: true, new: true }
+        )
+        console.log(`User ${user_stat1} status set to true on auth`);
+      } catch (err) {
+        console.error("Error setting initial status:", err);
+        socket.emit("error", { message: "Failed to update status" });
+      }
+    });
+
+    socket.on("chat message2", async (data) => {
+      console.log(`📩 Message from user: ${data.user}`);
+      user_stat1 = data.user;
+      try {
+        await user_cred_data.findOneAndUpdate(
+          { user: user_stat1 },
+          { $set: { status: true } },
+          { upsert: true, new: true }
         );
-        console.log(`User ${user_stat1} status set to true`);
+        console.log(`User ${user_stat1} status set to true on chat message2`);
       } catch (err) {
         console.error("Error updating user status:", err);
+        socket.emit("error", { message: "Failed to update status" });
       }
     });
 
     socket.on("disconnect", async () => {
       console.log(`❌ User disconnected: ${socket.id}`);
-
       if (user_stat1) {
         try {
-          await user_cred_data.findOneAndUpdate(
-            { user: user_stat1 },
-            { $set: { status: false } }
-          );
-          console.log(`User ${user_stat1} status set to false`);
+          if (userSocketMap1[user_stat1] === socket.id) {
+            await user_cred_data.findOneAndUpdate(
+              { user: user_stat1 },
+              { $set: { status: false } }
+            );
+            console.log(`User ${user_stat1} status set to false on disconnect`);
+            delete userSocketMap1[user_stat1];
+          }
         } catch (err) {
           console.error("Error updating user status on disconnect:", err);
         }
@@ -340,25 +360,20 @@ const stat = () => {
 };
 
 stat();
-
 app.get("/st", async (req, res) => {
-  let user = req.query.user; // get from query params
-  
+  let user = req.query.user;
   if (!user) {
     return res.status(400).json({ error: "User query parameter is required" });
   }
-
   try {
     let user_state = await user_cred_data.findOne(
-      { user: user },
+      { user },
       { status: 1, _id: 0 }
     );
-
     if (!user_state) {
       return res.status(404).json({ error: "User not found" });
     }
-
-    res.json({ st: user_state.status });
+    res.json({ st: user_state.status ? "online" : "offline" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal server error" });
@@ -366,31 +381,114 @@ app.get("/st", async (req, res) => {
 });
 
 // Example using Mongoose
-app.get('/ct/:username', async (req, res) => {
-  const { username } = req.params;
 
-  try {
-    const user = await User.findOne({ username }); // Find by username
+/*app.get('/user', (req, res) => {
+  const user_p = req.query.user;
+  const to_p = req.query.to;
+  const mode = req.query.mode;
 
-    if (!user) return res.status(404).json({ error: "User not found" });
+  console.log(`${user_p} wants to ${mode} ${to_p}`);
+  res.json({msg :'connecting!'})
+});*/
 
-    res.json({
-      _id: user._id,
-      username: user.username,
-      isOnline: user.isOnline || false, // Add this field in DB schema
-    });
-  } catch (err) {
-    res.status(500).json({ error: "Server error" });
-  }
+
+// Map to store username => socketId
+// Existing userSocketMap and connection logic
+const userSocketMap = {};
+
+// Handle socket connection
+io.on("connection", (socket) => {
+  console.log("✅ A user connected:", socket.id);
+
+  // Receive username and map it to socket ID
+  socket.on("auth", ({ user }) => {
+    userSocketMap[user] = socket.id;
+    console.log(`Authenticated user: ${user}`);
+    // Update status to online
+    user_cred_data.findOneAndUpdate(
+      { user },
+      { $set: { status: true } },
+      { upsert: true, new: true }
+    ).catch(err => console.error("Error setting initial status:", err));
+  });
+
+  // Handle private messages
+  socket.on("private message", ({ from, to, message }) => {
+    const toSocketId = userSocketMap[to];
+    if (toSocketId) {
+      io.to(toSocketId).emit("private message", { from, message });
+      // Optionally, send back to sender for confirmation
+      io.to(socket.id).emit("private message", { from, message, isSender: true });
+      console.log(`Message from ${from} to ${to}: ${message}`);
+    } else {
+      socket.emit("error", { message: `${to} is offline or not found` });
+    }
+  });
+
+  socket.on("chat message2", async (data) => {
+    console.log(`📩 Message from user: ${data.user}`);
+    const user_stat1 = data.user;
+    try {
+      await user_cred_data.findOneAndUpdate(
+        { user: user_stat1 },
+        { $set: { status: true } },
+        { upsert: true, new: true }
+      );
+      console.log(`User ${user_stat1} status set to true`);
+    } catch (err) {
+      console.error("Error updating user status:", err);
+      socket.emit("error", { message: "Failed to update status" });
+    }
+  });
+
+  socket.on("disconnect", async () => {
+    console.log(`❌ User disconnected: ${socket.id}`);
+    for (const [user, id] of Object.entries(userSocketMap)) {
+      if (id === socket.id) {
+        try {
+          await user_cred_data.findOneAndUpdate(
+            { user },
+            { $set: { status: false } }
+          );
+          console.log(`User ${user} status set to false`);
+          delete userSocketMap[user];
+          break;
+        } catch (err) {
+          console.error("Error updating user status on disconnect:", err);
+        }
+      }
+    }
+  });
 });
 
+// Update /user endpoint to validate recipient status
+app.get("/user", async (req, res) => {
+  const user_p = req.query.user;
+  const to_p = req.query.to;
+  const mode = req.query.mode;
 
+  console.log(`${user_p} wants to ${mode} ${to_p}`);
 
-
-
-
-
-
+  try {
+    const toUser = await user_cred_data.findOne({ user: to_p }, { status: 1 });
+    if (!toUser) {
+      return res.status(404).json({ msg: `${to_p} not found` });
+    }
+    if (!toUser.status) {
+      return res.status(400).json({ msg: `${to_p} is offline` });
+    }
+    const toSocketId = userSocketMap[to_p];
+    if (toSocketId) {
+      io.to(toSocketId).emit("incoming-request", { from: user_p, mode });
+      res.json({ msg: `Connecting to ${to_p} for ${mode}` });
+    } else {
+      res.status(400).json({ msg: `${to_p} is offline` });
+    }
+  } catch (err) {
+    console.error("Error in /user:", err);
+    res.status(500).json({ msg: "Internal server error" });
+  }
+});
 
 
 server.listen(port, () => {

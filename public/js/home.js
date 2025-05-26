@@ -3,43 +3,105 @@ let name1 = localStorage.getItem("name");
 let way = document.getElementById("btn");
 let type = document.getElementById("type");
 let avail_models = `
-1. deepseek-r1:1.5b <br><br><br>
-2. gemma3:4b
+<ul class="command-list">
+  <li><span class="command">1. deepseek-r1:1.5b</span></li>
+  <li><span class="command">2. gemma3:4b</span></li>
+</ul>
 `;
 let fr_cleaner = document.getElementById("cleaner");
-
 let user = localStorage.getItem("user");
+
 // Show join message once when the script runs
 let joiner = document.getElementById("join");
 joiner.innerHTML += `${name1} joined, welcome to chat!`;
-ins.innerHTML = `<div class='message other'>hey ${name1} how are you , enter "/" so i can guide you thorugly!</div>`;
+ins.innerHTML = `<div class='message other'><div class="command-example">hey ${name1} how are you, enter "/" so I can guide you thoroughly!</div></div>`;
+
+// Function to parse and format AI message content
+function formatAIMessage(text) {
+  let formattedText = text;
+
+  // Handle bold text (**text**)
+  formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+  // Handle code blocks (```code```)
+  if (formattedText.includes('```')) {
+    formattedText = formattedText.replace(/```([\s\S]*?)```/g, (match, codeContent) => {
+      const cleanedCode = codeContent.trim();
+      return `<pre><code>${cleanedCode}</code></pre>`;
+    });
+  }
+
+  // Handle inline code (`code`)
+  formattedText = formattedText.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  return formattedText;
+}
+
+// Function to add messages to the chat
+function addMessage(text, isUser, from) {
+  const message = document.createElement("div");
+
+  // Determine the message type
+  if (isUser) {
+    message.classList.add("message", "user");
+  } else if (from === "ollama") {
+    message.classList.add("message", "ai");
+  } else {
+    message.classList.add("message", "other");
+  }
+
+  // Handle special cases (e.g., command list or AI response)
+  if (text.includes("here are list of commands")) {
+    message.innerHTML = `
+      ok ${name1} here are list of commands
+      <ul class="command-list">
+        <li><span class="command">/r</span> = clear chat!</li>
+        <li><span class="command">/wiki</span> = to do a wiki search also if you want answer in special language just do ex: <span class="command-example">/(language first two words small letter)(prompt)</span> after entering <span class="command">/wiki</span></li>
+        <li><span class="command">/(model name)(prompt)</span> = answers in specific model made for</li>
+        <li><span class="command">/save</span> = save your chat</li>
+        <li><span class="command">/invite</span> = invite to talk with you</li>
+        <li><span class="command">/f</span> = talk personally to friend in your friend list</li>
+        <li>if enter anything else then special commands our model will answer it</li>
+        <li><span class="command">/m</span> = to see available models for your AI</li>
+      </ul>
+    `;
+  } else if (from === "ollama") {
+    // Format AI message with bold and code blocks
+    message.innerHTML = formatAIMessage(text);
+  } else if (text === avail_models) {
+    // Handle the /m command response
+    message.innerHTML = text;
+  } else {
+    message.textContent = text;
+  }
+
+  // Add timestamp
+  message.setAttribute(
+    "data-time",
+    new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  );
+
+  // Append to chat
+  ins.appendChild(message);
+  ins.scrollTop = ins.scrollHeight;
+}
 
 // Main function to handle sending and receiving
 let input = document.getElementById("take");
 let work = async () => {
   let msg_box = input.value.trim();
 
-  if (!msg_box) return; // prevent empty messages
+  if (!msg_box) return; // Prevent empty messages
 
   // Handle commands
   if (msg_box === "/") {
-    ins.innerHTML += `<div class="message other">ok ${name1} here are list of commands <br><br> 
-      1. /r = clear chat! <br><br><br>
-      2. /wiki = to do a wiki search also if <br>you want answer in special language  just do ex:  /(language first two words small letter )(prompt) after entering /wiki<br><br><br>
-      3. /(model name)(prompt) = answers in specifc model made for  <br><br><br>
-      4. /save = save your chat <br><br><br>
-      5. /invite = invite to talk with you<br><br><br>
-      6. /f  = talk personally to friend in your friend list<br><br><br>
-      7. if enter anyting else then special commands our model will answer it <br><br><br>
-      8. /m  = to see available models for your AI 
-    </div>`;
+    addMessage(`ok ${name1} here are list of commands`, false, "other");
     input.value = "";
     if (fr_cleaner) {
       fr_cleaner.innerHTML = "";
     } else {
       console.log("no rm");
     }
-
     return;
   } else if (msg_box === "/r") {
     window.location.reload();
@@ -49,15 +111,13 @@ let work = async () => {
     } else {
       console.log("no rm");
     }
-
     return;
   } else if (msg_box === "/wiki") {
     let for_wiki1 = prompt("What do you want to ask Wiki?");
     if (!for_wiki1) return;
     let for_wiki = for_wiki1.trim();
-    ins.innerHTML += `<div class="message user">${for_wiki}</div>`;
+    addMessage(for_wiki, true, user);
     type.innerHTML = "wiki answering...";
-    ins.scrollTop = ins.scrollHeight;
     input.value = "";
     if (fr_cleaner) {
       fr_cleaner.innerHTML = "";
@@ -76,10 +136,7 @@ let work = async () => {
       let data = await response.json();
       if (response.ok) {
         type.innerHTML = "";
-        ins.innerHTML += `<div class="message other">${
-          data.reply || JSON.stringify(data)
-        }</div>`;
-        ins.scrollTop = ins.scrollHeight;
+        addMessage(data.reply || JSON.stringify(data), false, "ollama");
         if (fr_cleaner) {
           fr_cleaner.innerHTML = "";
         } else {
@@ -107,12 +164,11 @@ let work = async () => {
   } else if (msg_box === "/m") {
     input.value = "";
     if (fr_cleaner) {
-  fr_cleaner.innerHTML = "";
-} else {
-  console.log('no rm');
-}
-
-    ins.innerHTML += `<div class="message other">${avail_models}</div>`;
+      fr_cleaner.innerHTML = "";
+    } else {
+      console.log("no rm");
+    }
+    addMessage(avail_models, false, "other");
     return;
   } else if (msg_box === "/invite") {
     input.value = "";
@@ -123,11 +179,59 @@ let work = async () => {
     alert("This feature is coming soon.");
     return;
   } else if (msg_box === "/f") {
-    return (window.location.href = "freinds.html");
+    window.location.href = "freinds.html";
+    return;
   }
-  ins.innerHTML += `<div class="message user">${msg_box}</div>`;
+
+  // Handle model-specific prompts (e.g., /(model name)(prompt))
+  if (msg_box.startsWith("/")) {
+    const modelMatch = msg_box.match(/^\/([^\/]+)(.*)$/);
+    if (modelMatch) {
+      const model = modelMatch[1];
+      const prompt = modelMatch[2].trim();
+      if (prompt) {
+        addMessage(msg_box, true, user);
+        type.innerHTML = "Typing...";
+        input.value = "";
+        if (fr_cleaner) {
+          fr_cleaner.innerHTML = "";
+        } else {
+          console.log("no rm");
+        }
+
+        let msg = { msg: prompt, model: model };
+        try {
+          let response = await fetch("/msg", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(msg),
+          });
+
+          let data = await response.json();
+          if (response.ok) {
+            type.innerHTML = "";
+            addMessage(data.reply || JSON.stringify(data), false, "ollama");
+            if (fr_cleaner) {
+              fr_cleaner.innerHTML = "";
+            } else {
+              console.log("no rm");
+            }
+          } else {
+            console.error("Server error:", data);
+            type.innerHTML = "";
+          }
+        } catch (error) {
+          console.error("Fetch error:", error);
+          type.innerHTML = "";
+        }
+        return;
+      }
+    }
+  }
+
+  // Handle regular messages
+  addMessage(msg_box, true, user);
   type.innerHTML = "Typing...";
-  ins.scrollTop = ins.scrollHeight;
   input.value = "";
   if (fr_cleaner) {
     fr_cleaner.innerHTML = "";
@@ -136,7 +240,6 @@ let work = async () => {
   }
 
   let msg = { msg: msg_box };
-  console.log(msg.msg);
   try {
     let response = await fetch("/msg", {
       method: "POST",
@@ -147,16 +250,12 @@ let work = async () => {
     let data = await response.json();
     if (response.ok) {
       type.innerHTML = "";
+      addMessage(data.reply || JSON.stringify(data), false, "ollama");
       if (fr_cleaner) {
         fr_cleaner.innerHTML = "";
       } else {
         console.log("no rm");
       }
-
-      ins.innerHTML += `<div class="message other">${
-        data.reply || JSON.stringify(data)
-      }</div>`;
-      ins.scrollTop = ins.scrollHeight;
     } else {
       console.error("Server error:", data);
       type.innerHTML = "";
@@ -167,28 +266,26 @@ let work = async () => {
   }
 };
 
+// Friend request handler
 let giver = () => {
   fetch("/fr_await", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user , i:1 }),
+    body: JSON.stringify({ user, i: 1 }),
   })
     .then((res) => res.json())
     .then((data) => {
       const awaitList = data.awaiter;
 
       if (!awaitList || awaitList.length === 0) {
-        //console.log('no friend req yet');
         return;
       }
 
       awaitList.forEach((fr1, index) => {
-        // Use friend name as unique id, replacing spaces with underscores
         const requestId = `req-${fr1.replace(/\s+/g, "_")}`;
         const acceptId = `accept-${fr1.replace(/\s+/g, "_")}`;
         const rejectId = `reject-${fr1.replace(/\s+/g, "_")}`;
 
-        // Skip if this request is already shown
         if (document.getElementById(requestId)) {
           return;
         }
@@ -203,7 +300,6 @@ let giver = () => {
           </div>
         `;
 
-        // Attach event listeners after elements added
         setTimeout(() => {
           const acceptBtn = document.getElementById(acceptId);
           const rejectBtn = document.getElementById(rejectId);
@@ -221,7 +317,6 @@ let giver = () => {
                 alert("DB error");
               });
 
-              // Remove friend request element after accept
               const el = document.getElementById(requestId);
               if (el) el.remove();
             });
@@ -240,7 +335,6 @@ let giver = () => {
                 console.log("DB error");
               });
 
-              // Remove friend request element after reject
               const el = document.getElementById(requestId);
               if (el) el.remove();
             });
@@ -251,5 +345,15 @@ let giver = () => {
     .catch((err) => console.error(err));
 };
 
-// Call giver every 200ms
+// Call giver every 900ms
 setInterval(giver, 900);
+
+// Event listener for send button
+way.addEventListener("click", work);
+
+// Event listener for Enter key
+input.addEventListener("keypress", (e) => {
+  if (e.key === "Enter") {
+    work();
+  }
+});

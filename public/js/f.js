@@ -1,3 +1,6 @@
+// Initialize Socket.IO
+//const socket = io();
+
 // Get username from localStorage
 const user_name = localStorage.getItem("user");
 
@@ -7,45 +10,61 @@ const addBtn = document.getElementById("add-btn");
 const searchInput = document.getElementById("search");
 const listContainer = document.getElementById("list");
 
+const optionsModal = document.getElementById("options-modal");
+const friendNameEl = document.getElementById("friend-name");
+const callBtn = document.getElementById("call-btn");
+const textBtn = document.getElementById("text-btn");
+const closeBtn = document.getElementById("close-btn");
+
 // State
 let friends = [];
+
+// On socket connect, send auth
+socket.on("connect", () => {
+  socket.emit("auth", { user: user_name });
+  socket.emit("chat message2", { user: user_name }); // Ensure status update
+});
+
+// Handle server errors
+socket.on("error", (data) => {
+  console.error("Server error:", data.message);
+});
+
+// Listen for incoming requests
+socket.on("incoming-request", (data) => {
+  const { from, mode } = data;
+  alert(`${from} wants to ${mode} you!`);
+  // Redirect with recipient as query parameter
+  window.location.href = `${mode}.html?to=${encodeURIComponent(from)}`;
+});
 
 // Helper: get initials for avatar
 function getInitials(name) {
   return name.slice(0, 2).toUpperCase();
 }
 
-// Render friends list
+// Render friends list with filter
 function renderFriends(filter = "") {
   listContainer.innerHTML = "";
-
   const filtered = friends.filter(friend =>
     friend.toLowerCase().includes(filter.toLowerCase())
   );
-
   if (filtered.length === 0) {
     listContainer.innerHTML = `<p class="empty-message">No friends found.</p>`;
     return;
   }
-
   filtered.forEach(friend => {
     const friendDiv = document.createElement("div");
     friendDiv.className = "friend";
     friendDiv.dataset.name = friend;
-
     friendDiv.innerHTML = `
       <div class="avatar">${getInitials(friend)}</div>
       <span>${friend}</span>
       <div class="status-dot status-offline"></div>
     `;
-
-    friendDiv.addEventListener("click", () => {
-      checkAndShowOptions(friend);
-    });
-
+    friendDiv.addEventListener("click", () => checkAndShowOptions(friend));
     listContainer.appendChild(friendDiv);
   });
-
   updateFriendStatuses();
 }
 
@@ -65,16 +84,13 @@ function fetchFriends() {
         console.error("Invalid response:", data);
       }
     })
-    .catch(err => {
-      console.error("Error fetching friends:", err);
-    });
+    .catch(err => console.error("Error fetching friends:", err));
 }
 
 // Add friend handler
 addBtn.addEventListener("click", () => {
   const fr_name = frInput.value.trim();
-
-  if (fr_name === "") {
+  if (!fr_name) {
     alert("Oops! You forgot to fill in the friend's name.");
     return;
   }
@@ -86,7 +102,6 @@ addBtn.addEventListener("click", () => {
     alert("This friend is already in your list.");
     return;
   }
-
   fetch("/get/send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -96,6 +111,7 @@ addBtn.addEventListener("click", () => {
     .then(data => {
       alert(data.msg || "Friend request sent!");
       frInput.value = "";
+      fetchFriends(); // Refresh friend list
     })
     .catch(() => alert("Failed to send friend request."));
 });
@@ -111,65 +127,57 @@ async function fetchUserStatus(username) {
     const response = await fetch(`/st?user=${encodeURIComponent(username)}`);
     if (!response.ok) return false;
     const data = await response.json();
-    return data.st === true || data.st === "online";
+    return data.st === "online";
   } catch {
     return false;
   }
 }
 
-// Update status dots
+// Update status dots on friend list
 async function updateFriendStatuses() {
   const friendDivs = listContainer.querySelectorAll(".friend");
-
-  for (let i = 0; i < friends.length; i++) {
-    const friend = friends[i];
-    const friendDiv = friendDivs[i];
+  for (const friendDiv of friendDivs) {
+    const friend = friendDiv.dataset.name;
     const statusDot = friendDiv.querySelector(".status-dot");
-
     const isOnline = await fetchUserStatus(friend);
-
-    if (isOnline) {
-      statusDot.classList.add("status-online");
-      statusDot.classList.remove("status-offline");
-    } else {
-      statusDot.classList.add("status-offline");
-      statusDot.classList.remove("status-online");
-    }
+    statusDot.classList.toggle("status-online", isOnline);
+    statusDot.classList.toggle("status-offline", !isOnline);
   }
 }
 
-// Popup for Call or Text options
-const optionsModal = document.getElementById("options-modal");
-const friendNameEl = document.getElementById("friend-name");
-const callBtn = document.getElementById("call-btn");
-const textBtn = document.getElementById("text-btn");
-const closeBtn = document.getElementById("close-btn"); // cross button
-
-// Show popup if online else alert
+// Show popup and handle call/text options
 async function checkAndShowOptions(friend) {
   const isOnline = await fetchUserStatus(friend);
+  friendNameEl.textContent = friend;
+  optionsModal.style.display = "block";
 
-  if (isOnline) {
-    friendNameEl.textContent = friend;
-    optionsModal.style.display = "block";
+  callBtn.onclick = () => {
+    alert(`Calling ${friend}...`);
+    optionsModal.style.display = "none";
+    fetch(`/user?user=${encodeURIComponent(user_name)}&to=${encodeURIComponent(friend)}&mode=call`)
+      .then(res => res.json())
+      .then(data => {
+        alert(data.msg);
+        if (data.msg.includes("Connecting")) {
+          window.location.href = `call.html?to=${encodeURIComponent(friend)}`;
+        }
+      })
+      .catch(() => alert("Failed to send call request."));
+  };
 
-    callBtn.onclick = () => {
-      alert(`Calling ${friend}...`);
-      optionsModal.style.display = "none";
-      //here a fetch function send  chat req from to 
-      window.location.href = 'call.html';
-    
-    };
-
-    textBtn.onclick = () => {
-      alert(`Texting ${friend}...`);
-      optionsModal.style.display = "none";
-      //here a fetch function send  chat req from to 
-      window.location.href = 'chat.html';
-    };
-  } else {
-    alert(`${friend} is offline.`);
-  }
+  textBtn.onclick = () => {
+    alert(`Texting ${friend}...`);
+    optionsModal.style.display = "none";
+    fetch(`/user?user=${encodeURIComponent(user_name)}&to=${encodeURIComponent(friend)}&mode=text`)
+      .then(res => res.json())
+      .then(data => {
+        alert(data.msg);
+        if (data.msg.includes("Connecting")) {
+          window.location.href = `text.html?to=${encodeURIComponent(friend)}`;
+        }
+      })
+      .catch(() => alert("Failed to send text request."));
+  };
 }
 
 // Close popup on cross click
@@ -184,6 +192,6 @@ window.onclick = (event) => {
   }
 };
 
-// Initial fetch and periodic refresh
+// Initial fetch and periodic update
 fetchFriends();
-setInterval(updateFriendStatuses, 5000);
+setInterval(updateFriendStatuses, 5000); // every 5 seconds
