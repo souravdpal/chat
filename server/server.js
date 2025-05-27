@@ -134,7 +134,7 @@ app.post('/msg', async (req, res) => {
     });
     const aiReply = response.data.reply;
     console.log(`AI response: ${aiReply}`);
-    res.json({ reply: `AI: ${aiReply}` });
+    res.json({ reply: ` ${aiReply}` });
   } catch (error) {
     console.error('AI error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to get AI reply' });
