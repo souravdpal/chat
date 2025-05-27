@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Friends List</title>
+  <link rel="stylesheet" href="f.css">
+  
+</head>
+<style></style>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="logo">ChatApp</div>
+    <input type="checkbox" id="menu-toggle" />
+    <label for="menu-toggle" class="hamburger">
+      <span></span>
+      <span></span>
+      <span></span>
+    </label>
+    <ul class="nav-links">
+      <li><a href="home.html" onclick="closeMenu()">Home</a></li>
+      <li><a href="world.html" onclick="closeMenu()">World-Chats</a></li>
+      <li><a href="aboutme.html" onclick="closeMenu()">About</a></li>
+      <li><a href="f.html" onclick="closeMenu()">Friends</a></li>
+      <li onclick="user_rm(); closeMenu()">
+        <a href="#">Delete account</a>
+      </li>
+    </ul>
+    <button class="theme-toggle" aria-label="Toggle Theme">Toggle Theme</button>
+  </nav>
+
+  <h1>Friends List</h1>
+
+  <div class="input-container">
+    <input type="text" id="add" placeholder="Add friend username..." autocomplete="off" />
+    <button id="add-btn" aria-label="Add Friend">Add</button>
+  </div>
+
+  <div class="input-container">
+    <input type="search" id="search" placeholder="Search friends..." autocomplete="off" />
+  </div>
+
+  <div class="friends-list" id="list">
+    <p class="empty-message">No friends yet. Add some!</p>
+  </div>
+
+  <!-- Options Modal -->
+  <div id="options-modal" class="modal">
+    <div class="modal-content">
+      <span id="close-btn" class="close">&times;</span> <!-- ✅ Cross Button -->
+      <h3 id="friend-name">Friend Name</h3>
+      <button id="call-btn">📞 Call</button>
+      <button id="text-btn">💬 Text</button>
+    </div>
+  </div>
+
+  <div id="options-modal" style="display:none;">
+    <button id="close-modal"
+      style="float:right; font-size:20px; border:none; background:none; cursor:pointer;">&times;</button>
+    <h3>Options for <span id="friend-name"></span></h3>
+    <button id="call-btn">Call</button>
+    <button id="text-btn">Text</button>
+  </div>
+  <style>
+    #accept-call,
+    #reject-call {
+      margin: 10px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    #accept-call {
+      background: #34d399;
+      color: white;
+    }
+
+    #reject-call {
+      background: #f43f5e;
+      color: white;
+    }
+
+
+
+    #call-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 20px;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+    }
+
+    #accept-call,
+    #reject-call {
+      margin: 10px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    #accept-call {
+      background: #34d399;
+      color: white;
+    }
+
+    #reject-call {
+      background: #f43f5e;
+      color: white;
+    }
+  </style>
+  <!-- Scripts -->
+  <script defer src="/js/f.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/status.js"></script>
+  <script src="/js/dlt.js"></script>
+</body>
+
+</html>

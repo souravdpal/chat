@@ -56,78 +56,84 @@ function showMessage(data, type) {
   ins.scrollTop = ins.scrollHeight;
 }
 
-let giver = () => {
-  fetch("/fr_await", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user, i: 1 }),
-  })
-    .then((res) => res.json())
-    .then((data) => {
-      const awaitList = data.awaiter;
-      if (!awaitList || awaitList.length === 0) return;
+function addFriendRequest(fr1) {
+  const requestId = `req-${fr1.replace(/\s+/g, '_')}`;
+  if (document.getElementById(requestId)) return;
 
-      awaitList.forEach((fr1) => {
-        const requestId = `req-${fr1.replace(/\s+/g, "_")}`;
-        const acceptId = `accept-${fr1.replace(/\s+/g, "_")}`;
-        const rejectId = `reject-${fr1.replace(/\s+/g, "_")}`;
+  const acceptId = `accept-${fr1.replace(/\s+/g, '_')}`;
+  const rejectId = `reject-${fr1.replace(/\s+/g, '_')}`;
 
-        if (document.getElementById(requestId)) return;
+  ins.innerHTML += `
+    <div class="cleaner" id="${requestId}">
+      <div class="friend-request">
+        <span><strong>${fr1}</strong> sent you a friend request.</span>
+        <button class="btn-accept" id="${acceptId}">Accept</button>
+        <button class="btn-reject" id="${rejectId}">Reject</button>
+      </div>
+    </div>
+  `;
 
-        ins.innerHTML += `
-          <div class="cleaner" id="${requestId}">
-            <div class="friend-request">
-              <span><strong>${fr1}</strong> sent you a friend request.</span><br><br>
-              <button class="btn-accept" id="${acceptId}">Accept</button>
-              <button class="btn-reject" id="${rejectId}">Reject</button>
-            </div>
-          </div>
-        `;
-
-        setTimeout(() => {
-          const acceptBtn = document.getElementById(acceptId);
-          const rejectBtn = document.getElementById(rejectId);
-
-          if (acceptBtn) {
-            acceptBtn.addEventListener("click", () => {
-              alert(`${fr1} is your friend now.`);
-
-              fetch("/fr_u", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ res_user: "ok", from: fr1, to: user }),
-              }).catch((err) => {
-                console.log(err);
-                alert("DB error");
-              });
-
-              const el = document.getElementById(requestId);
-              if (el) el.remove();
-            });
-          }
-
-          if (rejectBtn) {
-            rejectBtn.addEventListener("click", () => {
-              alert(`${fr1} is denied!`);
-
-              fetch("/fr_u", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ res_user: "no", from: fr1, to: user }),
-              }).catch((err) => {
-                console.log(err);
-                console.log("DB error");
-              });
-
-              const el = document.getElementById(requestId);
-              if (el) el.remove();
-            });
-          }
-        }, 0);
+  setTimeout(() => {
+    const acceptBtn = document.getElementById(acceptId);
+    const rejectBtn = document.getElementById(rejectId);
+    if (acceptBtn) {
+      acceptBtn.addEventListener('click', () => {
+        fetch('/fr_response', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'accept', from: fr1, to: user }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            alert(`Accepted friend request from ${fr1}.`);
+            document.getElementById(requestId)?.remove();
+            socket.emit('friendRequestAccepted', { from: user, to: fr1 });
+          })
+          .catch((err) => {
+            console.error('Error accepting friend request:', err);
+            alert('Failed to accept friend request.');
+          });
       });
-    })
-    .catch((err) => console.error(err));
-};
+    }
 
-// Call giver every 300ms
-setInterval(giver, 300);
+    if (rejectBtn) {
+      rejectBtn.addEventListener('click', () => {
+        fetch('/fr_response', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'reject', from: fr1, to: user }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            alert(`Rejected friend request from ${fr1}.`);
+            document.getElementById(requestId)?.remove();
+          })
+          .catch((err) => {
+            console.error('Error rejecting friend request:', err);
+            alert('Failed to reject friend request.');
+          });
+      });
+    }
+  }, 0);
+}
+
+// Fetch friend requests
+async function fetchFriendRequests() {
+  try {
+    const response = await fetch(`/fr_requests?user=${encodeURIComponent(user)}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const data = await response.json();
+    if (response.ok && Array.isArray(data.requests)) {
+      data.requests.forEach((fr) => addFriendRequest(fr));
+    } else {
+      console.error('Invalid friend requests response:', data);
+    }
+  } catch (err) {
+    console.error('Error fetching friend requests:', err);
+  }
+}
+
+
+setInterval(fetchFriendRequests, 1000);

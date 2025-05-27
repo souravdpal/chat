@@ -1,38 +1,34 @@
-// Initialize Socket.IO
-const socket = io();
+// Connect to '/status' namespace explicitly
+const statusSocket = io("/status");
 
-// Get username from localStorage
-const user_name1 = localStorage.getItem("user");
+// Make global for other scripts
+window.statusSocket = statusSocket;
 
-//r is not logged in, redirect to login (optional, depending on page)
-if (!user_name1) {
-  console.warn("⚠️ No user found in localStorage");
-  window.location.href = "login.html"; // Redirect to login page
-  // Optionally, you can show an alert  
-  // Uncomment the following line if you want to redirect on all pages
-  // window.location.href = "login.html";
+const user_name = localStorage.getItem("user");
+
+if (!user_name) {
+  alert("Please log in to continue.");
+  window.location.href = "login.html";
 } else {
-  // Send auth on connect
-  socket.on("connect", () => {
-    console.log("✅ Connected to server with ID:", socket.id);
-    socket.emit("auth", { user: user_name1 });
-    socket.emit("chat message2", { user: user_name1 });
+  statusSocket.on("connect", () => {
+    console.log("✅ Status socket connected:", statusSocket.id);
+    statusSocket.emit("auth", { user: user_name });
   });
 
-  // Handle reconnect
-  socket.on("reconnect", (attempt) => {
-    console.log(`✅ Reconnected to server after ${attempt} attempts`);
-    socket.emit("auth", { user: user_name1 });
-    socket.emit("chat message2", { user: user_name1 });
+  statusSocket.on("status update", (data) => {
+    console.log("Status update:", data);
   });
 
-  // Handle server errors
-  socket.on("error", (data) => {
-    console.error("Server error:", data.message);
+  statusSocket.on("reconnect", (attempt) => {
+    console.log(`✅ Status socket reconnected after ${attempt} attempts`);
+    statusSocket.emit("auth", { user: user_name });
   });
 
-  // Ensure status is updated to false when the user leaves the site
+  statusSocket.on("error", (data) => {
+    console.error("Status socket error:", data.message);
+  });
+
   window.addEventListener("beforeunload", () => {
-    socket.disconnect(); // Trigger disconnect event on the server
+    statusSocket.disconnect();
   });
 }

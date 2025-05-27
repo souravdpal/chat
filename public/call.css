@@ -1,0 +1,213 @@
+/* public/css/style.css */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Poppins', sans-serif;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: background 0.3s, color 0.3s;
+}
+
+/* Light Theme */
+body[data-theme="light"] {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  color: #333;
+}
+
+body[data-theme="light"] .call-container {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+body[data-theme="light"] .control-btn {
+  background: #4CAF50;
+  color: white;
+}
+
+body[data-theme="light"] .control-btn:hover {
+  background: #45a049;
+}
+
+/* Dark Theme */
+body[data-theme="dark"] {
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  color: #e0e0e0;
+}
+
+body[data-theme="dark"] .call-container {
+  background: rgba(30, 30, 30, 0.95);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+body[data-theme="dark"] .control-btn {
+  background: #2196F3;
+  color: white;
+}
+
+body[data-theme="dark"] .control-btn:hover {
+  background: #1e88e5;
+}
+
+/* Cosmic Theme */
+body[data-theme="cosmic"] {
+  background: linear-gradient(135deg, #ff00cc 0%, #333399 100%);
+  color: #fff;
+}
+
+body[data-theme="cosmic"] .call-container {
+  background: rgba(20, 20, 40, 0.85);
+  border: 1px solid #ff00cc;
+  box-shadow: 0 0 20px rgba(255, 0, 204, 0.5);
+}
+
+body[data-theme="cosmic"] .control-btn {
+  background: linear-gradient(45deg, #ff00cc, #333399);
+  color: white;
+  border: 1px solid #fff;
+}
+
+body[data-theme="cosmic"] .control-btn:hover {
+  background: linear-gradient(45deg, #e600b3, #2a2a7a);
+  box-shadow: 0 0 15px rgba(255, 0, 204, 0.7);
+}
+
+.call-container {
+  padding: 2rem;
+  border-radius: 20px;
+  text-align: center;
+  max-width: 600px;
+  width: 90%;
+  backdrop-filter: blur(10px);
+  animation: fadeIn 0.5s ease-in;
+}
+
+h1 {
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.audio-container {
+  margin-bottom: 1.5rem;
+}
+
+audio {
+  display: none; /* Audio elements hidden, controls via buttons */
+}
+
+.call-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.control-btn {
+  padding: 0.8rem 1.5rem;
+  border: none;
+  border-radius: 25px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.control-btn:disabled {
+  background: #ccc !important;
+  cursor: not-allowed;
+}
+
+.control-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.6s ease, height 0.6s ease;
+}
+
+.control-btn:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+#call-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.95);
+  padding: 20px;
+  border-radius: 15px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  animation: slideIn 0.3s ease;
+}
+
+#call-modal p {
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+}
+
+#accept-call, #reject-call {
+  margin: 10px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+#accept-call {
+  background: #34d399;
+  color: white;
+}
+
+#accept-call:hover {
+  background: #2fb686;
+}
+
+#reject-call {
+  background: #f43f5e;
+  color: white;
+}
+
+#reject-call:hover {
+  background: #e11d48;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideIn {
+  from { transform: translate(-50%, -60%); opacity: 0; }
+  to { transform: translate(-50%, -50%); opacity: 1; }
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .call-container {
+    padding: 1rem;
+  }
+  h1 {
+    font-size: 1.5rem;
+  }
+  .control-btn {
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+  }
+}
