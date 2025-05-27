@@ -1,120 +1,107 @@
-const app = require("express")();
-const exp = require("express");
-const cors = require("cors");
-const fs = require("fs");
-const path = require("path");
-const bcrypt = require("bcrypt");
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const bcrypt = require('bcryptjs');
 const round = 10;
 const port = process.env.PORT || 3000;
-const axios = require("axios");
-const mongo = require("mongoose");
-require("dotenv").config();
-let mongo_uri = process.env.MONGO_URI;
-const http = require("http");
+const axios = require('axios');
+const mongoose = require('mongoose');
+require('dotenv').config();
+const http = require('http');
+const { Server } = require('socket.io');
+
+// Initialize app
+const app = express();
 const server = http.createServer(app);
-const { Server } = require("socket.io");
-const io = new Server(server);
-//const router  = exp.Router();
-//routes
-
-//const st_user = require('./status');
-//st_user(io);
-
-app.use(cors());
-app.use(exp.json());
-app.use(exp.text());
-
-app.use(exp.static(path.join(__dirname, "..", "public")));
-app.use(exp.static(path.join(__dirname, "..", "data")));
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "..", "public", "welcome.html"));
+const io = new Server(server, {
+  cors: {
+    origin: ['http://localhost:3000', 'https://your-ngrok-id.ngrok.io'], // Update with your production URL
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
 });
 
-mongo
-  .connect("mongodb://localhost:27017/chat_app")
-  .then(() => {
-    console.log("mongo_db connected!");
-  })
-  .catch((err) => {
-    console.log(err);
-  });
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.text());
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
-const user_body = new mongo.Schema({
+// Serve welcome page
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'welcome.html'));
+});
+
+// MongoDB connection
+mongoose
+  .connect(process.env.MONGO_URI || 'mongodb://localhost:27017/chat_app')
+  .then(() => console.log('Connected to MongoDB!'))
+  .catch((err) => console.error('MongoDB connection error:', err));
+
+// User Schema
+const userSchema = new mongoose.Schema({
   name: String,
   user: String,
   key1: String,
   f: [String],
   fr_await: [String],
-  status: {
-    type: Boolean,
-    default: false,
-  },
+  status: { type: Boolean, default: false },
 });
-const user_cred_data = mongo.models.user || mongo.model("user", user_body);
-let exist = async (username_user) => {
-  const db_user_cheker = await user_cred_data.findOne(
-    { user: username_user }, // Fixed this
-    { user: 1, _id: 0, name: 1 }
-  );
+const userCredData = mongoose.models.user || mongoose.model('user', userSchema);
 
-  if (!db_user_cheker) {
-    return false; // User not found
-  }
-
-  return db_user_cheker.user === username_user;
+// Check if user exists
+const exist = async (username) => {
+  const user = await userCredData.findOne({ user: username }, { user: 1, name: 1 });
+  return user ? true : false;
 };
 
-app.post("/user", async (req, res) => {
-  let { name, user, key } = req.body;
-
-  let auth1 = await user_cred_data.findOne({ user: user }, { user: 1, _id: 0 });
-  let auth = auth1 && auth1.user == user;
-  console.log(auth);
-  if (auth) {
-    console.log("user already exist error");
-    res.status(400).send("user already exist!");
-  } else if (!auth) {
-    try {
-      let key1 = await bcrypt.hash(key, round);
-      let data = new user_cred_data({ name, user, key1 });
-      await data.save();
-      console.log(data.name + "registerd!");
-      res.status(200).send(`${data.name} sucefully register! now plz login!`);
-    } catch (err) {
-      console.log(err);
-      res.status(400);
-    }
+// User Registration
+app.post('/user', async (req, res) => {
+  const { name, user, key } = req.body;
+  const userExists = await exist(user);
+  if (userExists) {
+    console.log('User already exists');
+    return res.status(400).send('User already exists!');
+  }
+  try {
+    const key1 = await bcrypt.hash(key, round);
+    const data = new userCredData({ name, user, key1 });
+    await data.save();
+    console.log(`${data.name} registered successfully`);
+    res.status(200).send(`${data.name} registered successfully! Please login!`);
+  } catch (err) {
+    console.error('Registration error:', err);
+    res.status(400).send('Registration failed!');
   }
 });
 
-app.post("/cred", async (req, res) => {
+// User Login
+app.post('/cred', async (req, res) => {
   const { user_log, key_log } = req.body;
-  console.log(user_log + "login to server");
-
+  console.log(`${user_log} attempting login`);
   try {
-    const auth1_log = await user_cred_data.findOne(
+    const user = await userCredData.findOne(
       { user: user_log },
-      { user: 1, name: 1, key1: 1, _id: 0 }
+      { user: 1, name: 1, key1: 1 }
     );
-
-    if (!auth1_log) {
-      console.log("User not found");
-      return res.status(400).send("User does not exist!");
+    if (!user) {
+      console.log('User not found');
+      return res.status(400).send('User does not exist!');
     }
-
-    const result = await bcrypt.compare(key_log, auth1_log.key1);
-
+    const result = await bcrypt.compare(key_log, user.key1);
     if (result) {
-      res.status(200).json({ name: auth1_log.name, user: auth1_log.user });
+      res.status(200).json({ name: user.name, user: user.user });
     } else {
-      res.status(400).send("Incorrect password!");
+      console.log('Incorrect password');
+      res.status(400).send('Incorrect password!');
     }
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Server error!");
+    console.error('Login error:', err);
+    res.status(500).send('Server error!');
   }
 });
+
+// Wikipedia API endpoint
 app.post("/wiki_cmd", async (req, res) => {
   const { msg } = req.body;
   console.log(`user ask from wiki  ${msg}`);
@@ -129,367 +116,329 @@ app.post("/wiki_cmd", async (req, res) => {
     console.error(
       "Error from Python server:",
       error.response?.data || error.message
+     
     );
+     res.json({ reply: "server: page not found" });
   }
-  res.json({ reply: "server: page not found" });
+  
 });
-app.post("/msg", async (req, res) => {
+
+// AI Chat endpoint
+app.post('/msg', async (req, res) => {
   const { msg } = req.body;
-  console.log(`user:${msg}`);
-
+  console.log(`AI message: ${msg}`);
   try {
-    const response = await axios.post("http://localhost:6000/chat", {
+    const response = await axios.post('http://localhost:6000/chat', {
       prompt: msg,
-      model: "deepseek-r1:1.5b",
+      model: 'deepseek-r1',
     });
-
     const aiReply = response.data.reply;
-    console.log(`AI : ${aiReply}`);
+    console.log(`AI response: ${aiReply}`);
     res.json({ reply: `AI: ${aiReply}` });
   } catch (error) {
-    console.error(
-      "Error from Python server:",
-      error.response?.data || error.message
-    );
-    res.status(500).json({ error: "Failed to get reply from AI." });
+    console.error('AI error:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Failed to get AI reply' });
   }
 });
 
-let sock = () => {
-  // Socket.io connection
-  io.on("connection", (socket) => {
-    console.log("✅ A user connected");
-
-    socket.on("chat message", (data) => {
-      console.log("📩 Message:", data);
-      io.emit("chat message", data);
-    });
-
-    socket.on("disconnect", () => {
-      console.log("❌ A user disconnected");
-    });
-  });
-};
-sock();
-
-app.post("/get/send", async (req, res) => {
-  let { from, to } = req.body;
+// Send Friend Request
+app.post('/friend_request', async (req, res) => {
+  const { from, to } = req.body;
+  //  console.log(`Friend request from ${from} to ${to}`);
   try {
-    const chk_fr = await user_cred_data.findOne(
-      { user: to },
-      { user: 1, name: 1, key1: 1, _id: 0, fr_await: 1 }
-    );
-
-    if (!chk_fr) {
-      console.log("error user not found by server");
-      return res.status(200).json({ msg: `Failed , ${to} not exist ` });
+    const recipient = await userCredData.findOne({ user: to }, { user: 1, fr_await: 1 });
+    if (!recipient) {
+      console.log(`User ${to} not found`);
+      return res.status(400).json({ error: `${to} not found` });
     }
-
-    console.log(chk_fr.user); // <-- moved here after null check
-
-    if (chk_fr.fr_await.includes(from)) {
-      return console.log("user exist already in wait list");
+    if (recipient.fr_await.includes(from)) {
+      console.log(`Friend request already sent to ${to}`);
+      return res.status(400).json({ error: `Friend request already sent to ${to}` });
     }
-
-    if (chk_fr.user === to) {
-      console.log("true");
-      const from_wait_lst_upt = await user_cred_data.updateOne(
-        { user: to },
-        { $addToSet: { fr_await: from } }
-      );
-      res.json({ msg: `req to ${to}  send sucsefully` });
-      chk_fr.fr_await.forEach((fr1) => {
-        console.log(fr1);
-      });
-    } else {
-      res.status(200).json({ msg: `Failed , ${to} not exist ` });
-    }
+    await userCredData.updateOne({ user: to }, { $addToSet: { fr_await: from } });
+    console.log(`Friend request sent`);
+    res.status(200).json({ message: `Friend request sent to ${to}` });
   } catch (err) {
-    console.log("Server error in /get/send:", err);
-    res.status(500).json({ msg: "Internal server error" });
+    console.error('Friend request error:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-app.post("/fr_await", async (req, res) => {
-  let { user, i } = req.body;
-  //console.log(i - i);
-  //console.log("fr await user fetching from home js "+ user);
-  try {
-    const user_await = await user_cred_data.find(
-      { user: user },
-      { _id: 0, fr_await: 1, user: 1, f: 1 }
-    );
-    let ck_user = user_await[0].user;
-    //console.log('this is whole arry'   + user_await);
-    //console.log(`this is  ${ck_user}`);
-    if (user == ck_user) {
-      //console.log(ck_user);
-      let sender_mess = await user_await[0].fr_await;
-      //console.log(`${sender_mess}    this is awaiting list  `);
-      return res.json({ awaiter: sender_mess });
-    }
-  } catch (err) {
-    console.log(err + "err block");
-  }
-});
-let g_res = [];
-app.post("/fr_u", async (req, res) => {
-  let data = req.body;
-  let res_user = data.res_user;
-  let from = data.from;
-  let to = data.to;
-  console.log(res_user);
-  if (res_user == "ok") {
-    const from_wait_lst_upt = await user_cred_data.updateOne(
-      { user: from },
-      { $addToSet: { f: to } }
-    );
-    const to_wait_lst_upt = await user_cred_data.updateOne(
-      { user: to },
-      { $addToSet: { f: from }, $pull: { fr_await: from } }
-    );
-    g_res.push({ msg: "fr req accepted!", user_from: from });
-    console.log(`the ${from} who got req replied ${res_user}  to  ${to}`);
-  } else if (res_user == "no") {
-    const pull_fr = await user_cred_data.updateOne(
-      { user: to },
-      { $pull: { fr_await: from } }
-    );
-    console.log("req denied");
-    g_res.push({ msg: "freind req denied", user_from: from });
-  }
-});
-//console.log(g_res[0]);
-app.get("/ans/res", (req, res) => {
-  res.json(g_res);
-  g_res = [];
-});
-app.post("/get_fr", async (req, res) => {
-  let { user } = req.body;
-
-  //console.log(user);
-  const give_fr_lst = await user_cred_data.find(
-    { user: user },
-    { _id: 1, f: 1, user: 1 }
-  );
-  let fr_lst_user = give_fr_lst[0].f;
-  res.status(200).json({ fr: fr_lst_user });
-  //console.log(`${user} fr list is ${fr_lst_user}`);
-});
-
-app.delete("/dl/:username", async (req, res) => {
-  const username = req.params.username;
-  console.log("Attempting to delete user:", username);
-
-  try {
-    const deletionResult = await user_cred_data.deleteOne({ user: username });
-
-    if (deletionResult.deletedCount === 0) {
-      return res.status(404).json({ msg: "User not found" });
-    }
-
-    return res
-      .status(200)
-      .json({ msg: `Successfully deleted user '${username}'` });
-  } catch (error) {
-    console.error("Error during user deletion:", error);
-    return res
-      .status(500)
-      .json({ msg: "Server error during account deletion" });
-  }
-});
-
-const userSocketMap1= {};
-
-const stat = () => {
-  io.on("connection", async (socket) => {
-    console.log(`✅ User connected: ${socket.id}`);
-    let user_stat1 = null;
-
-    socket.on("auth", async (data) => {
-      user_stat1 = data.user;
-      userSocketMap1[user_stat1] = socket.id; // Map user to socket ID
-      console.log(`Authenticated user: ${user_stat1}`);
-      try {
-        await user_cred_data.findOneAndUpdate(
-          { user: user_stat1 },
-          { $set: { status: true } },
-          { upsert: true, new: true }
-        )
-        console.log(`User ${user_stat1} status set to true on auth`);
-      } catch (err) {
-        console.error("Error setting initial status:", err);
-        socket.emit("error", { message: "Failed to update status" });
-      }
-    });
-
-    socket.on("chat message2", async (data) => {
-      console.log(`📩 Message from user: ${data.user}`);
-      user_stat1 = data.user;
-      try {
-        await user_cred_data.findOneAndUpdate(
-          { user: user_stat1 },
-          { $set: { status: true } },
-          { upsert: true, new: true }
-        );
-        console.log(`User ${user_stat1} status set to true on chat message2`);
-      } catch (err) {
-        console.error("Error updating user status:", err);
-        socket.emit("error", { message: "Failed to update status" });
-      }
-    });
-
-    socket.on("disconnect", async () => {
-      console.log(`❌ User disconnected: ${socket.id}`);
-      if (user_stat1) {
-        try {
-          if (userSocketMap1[user_stat1] === socket.id) {
-            await user_cred_data.findOneAndUpdate(
-              { user: user_stat1 },
-              { $set: { status: false } }
-            );
-            console.log(`User ${user_stat1} status set to false on disconnect`);
-            delete userSocketMap1[user_stat1];
-          }
-        } catch (err) {
-          console.error("Error updating user status on disconnect:", err);
-        }
-      }
-    });
-  });
-};
-
-stat();
-app.get("/st", async (req, res) => {
-  let user = req.query.user;
+// Fetch Friend Requests
+app.get('/fr_requests', async (req, res) => {
+  const { user } = req.query;
+  //console.log(`Fetching friend requests for ${user}`);
   if (!user) {
-    return res.status(400).json({ error: "User query parameter is required" });
+    return res.status(400).json({ error: 'User parameter required' });
   }
   try {
-    let user_state = await user_cred_data.findOne(
-      { user },
-      { status: 1, _id: 0 }
-    );
-    if (!user_state) {
-      return res.status(404).json({ error: "User not found" });
+    const userData = await userCredData.findOne({ user }, { fr_await: 1 });
+    if (userData) {
+      res.status(200).json({ requests: userData.fr_await });
+    } else {
+      res.status(404).json({ error: 'User not found' });
     }
-    res.json({ st: user_state.status ? "online" : "offline" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('Friend requests error:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Example using Mongoose
+// Accept/Reject Friend Request
+app.post('/fr_response', async (req, res) => {
+  const { action, from, to } = req.body;
+  console.log(`${action} friend request from ${from} to ${to}`);
+  try {
+    if (action === 'accept') {
+      await userCredData.updateOne({ user: from }, { $addToSet: { f: to } });
+      await userCredData.updateOne(
+        { user: to },
+        { $addToSet: { f: from }, $pull: { fr_await: from } }
+      );
+      console.log(`Friend request accepted`);
+      res.status(200).json({ message: 'Friend request accepted', from });
+    } else if (action === 'reject') {
+      await userCredData.updateOne({ user: to }, { $pull: { fr_await: from } });
+      console.log(`Friend request rejected`);
+      res.status(200).json({ message: 'Friend request rejected', from });
+    } else {
+      res.status(400).json({ error: 'Invalid action' });
+    }
+  } catch (err) {
+    console.error('Friend response error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
-/*app.get('/user', (req, res) => {
-  const user_p = req.query.user;
-  const to_p = req.query.to;
-  const mode = req.query.mode;
+// Fetch Friends List
+app.get('/friends', async (req, res) => {
+  const { user } = req.query;
+  console.log(`Fetching friends for ${user}`);
+  if (!user) {
+    return res.status(400).json({ error: 'User parameter required' });
+  }
+  try {
+    const userData = await userCredData.findOne({ user }, { f: 1 });
+    if (userData) {
+      res.status(200).json({ friends: userData.f });
+    } else {
+      res.status(404).json({ error: 'User not found' });
+    }
+  } catch (err) {
+    console.error('Friends fetch error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
-  console.log(`${user_p} wants to ${mode} ${to_p}`);
-  res.json({msg :'connecting!'})
-});*/
+// Batch Fetch User Statuses
+app.post('/batch_status', async (req, res) => {
+  const { users } = req.body;
+  console.log(`Fetching batch statuses for users: ${users.join(', ')}`);
+  if (!Array.isArray(users)) {
+    return res.status(400).json({ error: 'Users parameter must be an array' });
+  }
+  try {
+    const statuses = await userCredData.find(
+      { user: { $in: users } },
+      { user: 1, status: 1 }
+    );
+    const statusMap = statuses.reduce((map, user) => {
+      map[user.user] = user.status ? 'online' : 'offline';
+      return map;
+    }, {});
+    res.status(200).json({ statuses: statusMap });
+  } catch (err) {
+    console.error('Batch status error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
+// User Status
+app.get('/status', async (req, res) => {
+  const { user } = req.query;
+  console.log(`Checking status for ${user}`);
+  if (!user) {
+    return res.status(400).json({ error: 'User parameter required' });
+  }
+  try {
+    const userData = await userCredData.findOne({ user }, { status: 1 });
+    if (!userData) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.status(200).json({ status: userData.status ? 'online' : 'offline' });
+  } catch (err) {
+    console.error('Status error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
-// Map to store username => socketId
-// Existing userSocketMap and connection logic
+// Delete User
+app.delete('/dl/:username', async (req, res) => {
+  const username = req.params.username;
+  console.log(`Deleting user ${username}`);
+  try {
+    const result = await userCredData.deleteOne({ user: username });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    console.log(`User deleted`);
+    res.status(200).json({ message: `User ${username} deleted successfully` });
+  } catch (err) {
+    console.error('Delete user error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Socket.IO Connection
 const userSocketMap = {};
 
-// Handle socket connection
-io.on("connection", (socket) => {
-  console.log("✅ A user connected:", socket.id);
+io.of('/').on('connection', (socket) => {
+  console.log(`✅ User connected: ${socket.id}`);
 
-  // Receive username and map it to socket ID
-  socket.on("auth", ({ user }) => {
+  socket.on('auth', async ({ user }) => {
+    if (!user) {
+      console.error('No user provided for auth');
+      return;
+    }
+    // Remove stale sockets
+    for (const [existingUser, socketId] of Object.entries(userSocketMap)) {
+      if (existingUser === user && socketId !== socket.id) {
+        delete userSocketMap[existingUser];
+        console.log(`Removed stale socket for ${user}`);
+      }
+    }
     userSocketMap[user] = socket.id;
     console.log(`Authenticated user: ${user}`);
+    
     // Update status to online
-    user_cred_data.findOneAndUpdate(
-      { user },
-      { $set: { status: true } },
-      { upsert: true, new: true }
-    ).catch(err => console.error("Error setting initial status:", err));
-  });
-
-  // Handle private messages
-  socket.on("private message", ({ from, to, message }) => {
-    const toSocketId = userSocketMap[to];
-    if (toSocketId) {
-      io.to(toSocketId).emit("private message", { from, message });
-      // Optionally, send back to sender for confirmation
-      io.to(socket.id).emit("private message", { from, message, isSender: true });
-      console.log(`Message from ${from} to ${to}: ${message}`);
-    } else {
-      socket.emit("error", { message: `${to} is offline or not found` });
-    }
-  });
-
-  socket.on("chat message2", async (data) => {
-    console.log(`📩 Message from user: ${data.user}`);
-    const user_stat1 = data.user;
     try {
-      await user_cred_data.findOneAndUpdate(
-        { user: user_stat1 },
+      await userCredData.findOneAndUpdate(
+        { user },
         { $set: { status: true } },
         { upsert: true, new: true }
       );
-      console.log(`User ${user_stat1} status set to true`);
+      console.log(`User ${user} set to online`);
+      socket.emit('status update', { user, status: true });
+      // Broadcast status to friends
+      const userData = await userCredData.findOne({ user }, { f: 1 });
+      if (userData && userData.f) {
+        userData.f.forEach((friend) => {
+          const friendSocketId = userSocketMap[friend];
+          if (friendSocketId) {
+            io.to(friendSocketId).emit('status update', { user, status: true });
+          }
+        });
+      }
     } catch (err) {
-      console.error("Error updating user status:", err);
-      socket.emit("error", { message: "Failed to update status" });
+      console.error('Status update error:', err);
+      socket.emit('error', { message: 'Failed to update status' });
     }
   });
 
-  socket.on("disconnect", async () => {
+  socket.on('chat message2', ({ user }) => {
+    console.log(`Chat message ping from ${user}`);
+  });
+
+  socket.on('privateMessage', ({ from, to, message }) => {
+    const toSocketId = userSocketMap[to];
+    if (toSocketId) {
+      io.to(toSocketId).emit('privateMessage', { from, message });
+      io.to(socket.id).emit('privateMessage', { from, message, isSender: true });
+      console.log(`Message from ${from} to ${to}: ${message}`);
+    } else {
+      socket.emit('error', { message: `${to} is offline` });
+      console.log(`Message failed: ${to} offline`);
+    }
+  });
+
+  socket.on('offer', ({ from, to, offer }) => {
+    const toSocketId = userSocketMap[to];
+    if (toSocketId) {
+      io.to(toSocketId).emit('offer', { from, to, offer });
+      console.log(`Offer sent from ${from} to ${to}`);
+    } else {
+      socket.emit('error', { message: `${to} is offline` });
+    }
+  });
+
+  socket.on('answer', ({ from, to, answer }) => {
+    const toSocketId = userSocketMap[to];
+    if (toSocketId) {
+      io.to(toSocketId).emit('answer', { from, to, answer });
+      console.log(`Answer sent from ${from} to ${to}`);
+    }
+  });
+
+  socket.on('iceCandidate', ({ from, to, ice }) => {
+    const toSocketId = userSocketMap[to];
+    if (toSocketId) {
+      io.to(toSocketId).emit('iceCandidate', { from, to, ice });
+      console.log(`ICE candidate sent from ${from} to ${to}`);
+    }
+  });
+
+  socket.on('endCall', ({ from, to }) => {
+    const toSocketId = userSocketMap[to];
+    if (toSocketId) {
+      io.to(toSocketId).emit('endCall', { from, to });
+      console.log(`End call signal sent from ${from} to ${to}`);
+    }
+  });
+
+  socket.on('disconnect', async () => {
     console.log(`❌ User disconnected: ${socket.id}`);
     for (const [user, id] of Object.entries(userSocketMap)) {
       if (id === socket.id) {
         try {
-          await user_cred_data.findOneAndUpdate(
+          await userCredData.findOneAndUpdate(
             { user },
             { $set: { status: false } }
           );
-          console.log(`User ${user} status set to false`);
+          console.log(`User ${user} set to offline`);
+          // Broadcast offline status to friends
+          const userData = await userCredData.findOne({ user }, { f: 1 });
+          if (userData && userData.f) {
+            userData.f.forEach((friend) => {
+              const friendSocketId = userSocketMap[friend];
+              if (friendSocketId) {
+                io.to(friendSocketId).emit('status update', { user, status: false });
+              }
+            });
+          }
           delete userSocketMap[user];
           break;
         } catch (err) {
-          console.error("Error updating user status on disconnect:", err);
+          console.error('Disconnect status update error:', err);
         }
       }
     }
   });
 });
 
-// Update /user endpoint to validate recipient status
-app.get("/user", async (req, res) => {
-  const user_p = req.query.user;
-  const to_p = req.query.to;
-  const mode = req.query.mode;
-
-  console.log(`${user_p} wants to ${mode} ${to_p}`);
-
+// Call/Text Initiation
+app.get('/initiate', async (req, res) => {
+  const { user, to, mode } = req.query;
+  console.log(`${user} initiating ${mode} with ${to}`);
   try {
-    const toUser = await user_cred_data.findOne({ user: to_p }, { status: 1 });
+    const toUser = await userCredData.findOne({ user: to }, { status: 1 });
     if (!toUser) {
-      return res.status(404).json({ msg: `${to_p} not found` });
+      return res.status(404).json({ error: `${to} not found` });
     }
     if (!toUser.status) {
-      return res.status(400).json({ msg: `${to_p} is offline` });
+      return res.status(400).json({ error: `${to} is offline` });
     }
-    const toSocketId = userSocketMap[to_p];
+    const toSocketId = userSocketMap[to];
     if (toSocketId) {
-      io.to(toSocketId).emit("incoming-request", { from: user_p, mode });
-      res.json({ msg: `Connecting to ${to_p} for ${mode}` });
+      io.to(toSocketId).emit('incomingRequest', { from: user, mode });
+      res.status(200).json({ message: `Connecting to ${to} for ${mode}` });
     } else {
-      res.status(400).json({ msg: `${to_p} is offline` });
+      res.status(400).json({ error: `${to} is offline` });
     }
   } catch (err) {
-    console.error("Error in /user:", err);
-    res.status(500).json({ msg: "Internal server error" });
+    console.error('Initiate error:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
-
 
 server.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
