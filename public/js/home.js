@@ -62,13 +62,18 @@ function initSocket() {
 // Format AI message content
 function formatAIMessage(text) {
   let formattedText = text;
+  // Replace double stars **text** with <strong>text</strong>
   formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  // Replace single stars *text* with <strong>text</strong>
+  formattedText = formattedText.replace(/\*(.*?)\*/g, '<strong>$1</strong>');
+  
   if (formattedText.includes('```')) {
     formattedText = formattedText.replace(/```([\s\S]*?)```/g, (match, codeContent) => {
       const cleanedCode = codeContent.trim();
       return `<pre><code>${cleanedCode}</code></pre>`;
     });
   }
+  
   formattedText = formattedText.replace(/`([^`]+)`/g, '<code>$1</code>');
   return formattedText;
 }
@@ -267,7 +272,7 @@ async function work() {
         input.value = '';
 
         try {
-          const response = await fetch('/msg', {
+          const response = await fetch('/msghome', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ msg: prompt, model }),
@@ -296,7 +301,7 @@ async function work() {
   input.value = '';
 
   try {
-    const response = await fetch('/msg', {
+    const response = await fetch('/msghome', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ msg: msg_box }),
