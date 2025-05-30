@@ -11,6 +11,9 @@ const avail_models = `
 <ul class="command-list">
   <li><span class="command">1. deepseek-r1:1.5b</span></li>
   <li><span class="command">2. gemma3:4b</span></li>
+  <li><span class="command">2. deepseek-r1:latest</span></li>
+  <li><span class="command">2.  llama3.1:8b </span></li>
+  <li><span class="command">2. gemma3:1b</span></li>
 </ul>
 `;
 
