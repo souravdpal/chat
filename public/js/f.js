@@ -1,15 +1,15 @@
 const socket = io('/'); // Connect to default namespace
 window.socket = socket; // Store globally for other scripts
-const userName = localStorage.getItem("user");
-const frInput = document.getElementById("add");
-const addBtn = document.getElementById("add-btn");
-const searchInput = document.getElementById("search");
-const listContainer = document.getElementById("list");
-const optionsModal = document.getElementById("options-modal");
-const friendNameEl = document.getElementById("friend-name");
-const callBtn = document.getElementById("call-btn");
-const textBtn = document.getElementById("text-btn");
-const closeBtn = document.getElementById("close-btn");
+const userName = localStorage.getItem('user');
+const frInput = document.getElementById('add');
+const addBtn = document.getElementById('add-btn');
+const searchInput = document.getElementById('search');
+const listContainer = document.getElementById('list');
+const optionsModal = document.getElementById('options-modal');
+const friendNameEl = document.getElementById('friend-name');
+const callBtn = document.getElementById('call-btn');
+const textBtn = document.getElementById('text-btn');
+const closeBtn = document.getElementById('close-btn');
 
 let friends = [];
 
@@ -20,7 +20,7 @@ function initSocket() {
     socket.emit('auth', { user: userName });
     setupSocketEvents();
     fetchFriends();
-    updateFriendStatuses(); // Initial status update
+    updateFriendStatuses();
   });
 
   socket.on('reconnect', (attempt) => {
@@ -53,43 +53,28 @@ function setupSocketEvents() {
     }
   });
 
-  socket.on('incomingRequest', (data) => {
-    const { from, mode } = data;
-    console.log(`Incoming ${mode} request from ${from}`);
-    if (mode === 'call') {
-      const modal = document.createElement('div');
-      modal.id = 'call-modal';
-      modal.style.position = 'fixed';
-      modal.style.top = '50%';
-      modal.style.left = '50%';
-      modal.style.transform = 'translate(-50%, -50%)';
-      modal.style.background = 'white';
-      modal.style.padding = '20px';
-      modal.style.borderRadius = '5px';
-      modal.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
-      modal.style.zIndex = '1000';
-      modal.innerHTML = `
-        <p>${from} is calling you!</p>
-        <button id="accept-call" style="margin: 10px; padding: 10px 20px; border: none; border-radius: 5px; background: #34d399; color: white; cursor: pointer;">Accept</button>
-        <button id="reject-call" style="margin: 10px; padding: 10px 20px; border: none; border-radius: 5px; background: #f43f5e; color: white; cursor: pointer;">Reject</button>
-      `;
-      document.body.appendChild(modal);
-      document.getElementById('accept-call').onclick = () => {
-        console.log(`Accepting call from ${from}`);
-        document.body.removeChild(modal);
-        setTimeout(() => {
-          window.location.href = `call.html?to=${encodeURIComponent(from)}&opcode=true`;
-        }, 100);
-      };
-      document.getElementById('reject-call').onclick = () => {
-        console.log(`Rejecting call from ${from}`);
-        document.body.removeChild(modal);
+  socket.on('incomingRequest', ({ from, mode }) => {
+    if (mode === 'text') {
+      if (confirm(`${from} wants to chat with you! Accept?`)) {
+        window.location.href = `text.html?to=${encodeURIComponent(from)}`;
+      }
+    } else if (mode === 'call') {
+      if (confirm(`${from} is calling you! Accept?`)) {
+        window.location.href = `call.html?to=${encodeURIComponent(from)}&opcode=true`;
+      } else {
         socket.emit('endCall', { from: userName, to: from });
-      };
-    } else {
-      alert(`${from} wants to ${mode} you!`);
-      window.location.href = `${mode}.html?to=${encodeURIComponent(from)}`;
+      }
     }
+  });
+
+  socket.on('friendRequest', ({ from }) => {
+    console.log(`New friend request from ${from}`);
+    fetchFriends();
+  });
+
+  socket.on('friendRequestAccepted', ({ from }) => {
+    alert(`${from} has accepted your friend request!`);
+    fetchFriends();
   });
 }
 
@@ -106,7 +91,7 @@ function renderFriends(filter = '') {
     listContainer.innerHTML = `<p class="empty-message">No friends found.</p>`;
     return;
   }
-  listContainer.innerHTML = ''; // Clear loading message
+  listContainer.innerHTML = '';
   filtered.forEach((friend) => {
     const friendDiv = document.createElement('div');
     friendDiv.className = 'friend';
@@ -128,9 +113,7 @@ function fetchFriends() {
     headers: { 'Content-Type': 'application/json' },
   })
     .then((res) => {
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       return res.json();
     })
     .then((data) => {
@@ -227,9 +210,10 @@ async function checkAndShowOptions(friend) {
     fetch(`/initiate?user=${encodeURIComponent(userName)}&to=${encodeURIComponent(friend)}&mode=text`)
       .then((res) => res.json())
       .then((data) => {
-        alert(data.message);
         if (data.message.includes('Connecting')) {
           window.location.href = `text.html?to=${encodeURIComponent(friend)}`;
+        } else {
+          alert(data.error);
         }
       })
       .catch(() => alert('Failed to send text request.'));
@@ -278,4 +262,3 @@ if (!userName) {
 } else {
   initSocket();
 }
-

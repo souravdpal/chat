@@ -1,7 +1,6 @@
-// Check for SpeechRecognition API support
+alert("This is a demo of the AI Assistant. For full functionality, so it can make mistakes.");
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
-
 if (SpeechRecognition) {
     recognition = new SpeechRecognition();
     recognition.lang = "en-US";
@@ -67,6 +66,48 @@ if (savedTheme) {
 }
 
 // UI elements
+// Enhanced speakText: fluent, natural female voice, skip "**", replace {{user}} with real name
+function speakText(text) {
+    // Skip speaking if text contains only "**"
+    if (text.trim() === "**") return;
+
+    // Replace {{user}} with real name from localStorage
+    let userName = localStorage.getItem("user") || "User";
+    const processedText = text.replace(/{{user}}/gi, userName).replace(/\{+\s*user\s*\}+/gi, userName);
+
+    // Find a natural female English voice
+    const synth = window.speechSynthesis;
+    let voices = synth.getVoices();
+    // If voices are not loaded yet, wait and retry
+    if (!voices.length) {
+        synth.onvoiceschanged = () => speakText(processedText);
+        return;
+    }
+    // Try to find a female English voice
+    let voice = voices.find(v =>
+        v.lang.startsWith("en") &&
+        (v.name.toLowerCase().includes("female") ||
+         v.name.toLowerCase().includes("woman") ||
+         v.name.toLowerCase().includes("her") ||
+         v.name.toLowerCase().includes("zira") || // common female voice
+         v.name.toLowerCase().includes("susan") ||
+         v.name.toLowerCase().includes("emma") ||
+         v.name.toLowerCase().includes("linda") ||
+         v.name.toLowerCase().includes("samantha"))
+    );
+    // Fallback to any English voice
+    if (!voice) {
+        voice = voices.find(v => v.lang.startsWith("en"));
+    }
+
+    const utterance = new SpeechSynthesisUtterance(processedText);
+    utterance.lang = "en-US";
+    if (voice) utterance.voice = voice;
+    utterance.rate = 1; // Normal speed
+    utterance.pitch = 1.1; // Slightly higher for natural female
+    utterance.volume = 1;
+    synth.speak(utterance);
+}
 document.addEventListener("DOMContentLoaded", () => {
     const micBtn = document.getElementById("micBtn");
     const status = document.getElementById("status");

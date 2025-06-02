@@ -162,14 +162,13 @@
       padding: 1rem;
       background: rgba(255, 255, 255, 0.05);
       border-radius: 0.5rem;
-      max-height: 12rem; /* Set a maximum height for the message area */
-      overflow-y: auto; /* Enable vertical scrolling */
+      max-height: 12rem;
+      overflow-y: auto;
       position: relative;
-      scrollbar-width: thin; /* For Firefox */
-      scrollbar-color: var(--accent) var(--card); /* Custom scrollbar colors */
+      scrollbar-width: thin;
+      scrollbar-color: var(--accent) var(--card);
     }
 
-    /* Custom Scrollbar for Webkit browsers (Chrome, Safari) */
     .ai-message::-webkit-scrollbar {
       width: 6px;
     }
@@ -273,6 +272,14 @@
       gap: 0.5rem;
     }
 
+    .server-status {
+      text-align: center;
+      font-size: clamp(0.8rem, 2vw, 0.9rem);
+      font-weight: 400;
+      color: #bbb;
+      margin-top: 0.5rem;
+    }
+
     .spinner {
       display: none;
       width: 1.5rem;
@@ -310,7 +317,7 @@
       }
 
       .ai-message {
-        max-height: 10rem; /* Slightly smaller max-height for medium screens */
+        max-height: 10rem;
       }
     }
 
@@ -332,10 +339,27 @@
 
       .ai-message {
         font-size: 1rem;
-        max-height: 8rem; /* Smaller max-height for small screens */
+        max-height: 8rem;
       }
     }
   </style>
+  <style>.ai-input {
+    width: 100%;
+    padding: 0.8rem;
+    border: 1px solid var(--accent);
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    font-size: 1rem;
+    display: none;
+    margin-top: 1rem;
+}
+
+.ai-input:focus {
+    outline: none;
+    border-color: var(--accent-glow);
+    box-shadow: 0 0 10px var(--neon-glow);
+}</style>
 </head>
 <body>
   <div class="stars">
@@ -351,31 +375,31 @@
     <div class="orb"></div>
   </div>
 
-  <div class="ai-container" id="aiContainer">
+ <div class="ai-container" id="aiContainer">
     <div class="ai-header">
-      <h2>AI Assistant</h2>
-      <button class="theme-toggle" onclick="toggleTheme()">Toggle Mode</button>
+        <h2>AI Assistant</h2>
+        <button class="theme-toggle" id="themeToggle">Toggle Mode</button>
     </div>
 
     <div class="ai-message" id="aiMessage">Hello, how can I help you today?</div>
+    <div class="ai-message" id="userMessage"></div> <!-- Added for user input display -->
+    <input class="ai-input" id="textInput" style="display: none;" placeholder="Type your message"> <!-- Added for text input -->
+    <button class="theme-toggle" id="submitBtn" style="display: none;">Send</button> <!-- Added for text submission -->
 
     <div class="controls">
-      <button class="mic-btn" id="micBtn" title="Start Listening">
-        <i class="fa-solid fa-microphone"></i>
-      </button>
-      <div class="wave" id="wave">
-        <span></span>
-        <span></span>
-        <span></span>
-        <span></span>
-        <span></span>
-      </div>
+        <button class="mic-btn" id="micBtn" title="Start Listening">
+            <i class="fa-solid fa-microphone"></i>
+        </button>
+        <div class="wave" id="wave">
+            <span></span><span></span><span></span><span></span><span></span>
+        </div>
     </div>
 
     <div class="status" id="status">Idle <span class="spinner" id="spinner"></span></div>
-  </div>
-  <script src="/js/call_m.js"></script>
+    <div class="server-status" id="serverStatus">Its not perefect just a previview...</div>
+</div>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/js/status"></script>
+  <script src="/js/call_m.js"></script>
+  <script src="/js/user_stat.js"></script>
 </body>
 </html>

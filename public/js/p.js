@@ -43,12 +43,40 @@ function toggleTheme() {
   localStorage.setItem('theme', newTheme);
 }
 
+// Fetch chat history
+async function fetchChatHistory() {
+  try {
+    const url = `/chat_history?type=personalchat&user1=${encodeURIComponent(userName)}&user2=${encodeURIComponent(recipient)}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const data = await response.json();
+    if (response.ok && Array.isArray(data.messages)) {
+      chatMessages.innerHTML = '';
+      data.messages.forEach(msg => addMessage(msg, msg.from === userName));
+    } else {
+      console.error('Invalid personalchat history response:', data);
+    }
+  } catch (err) {
+    console.error('Error fetching personalchat history:', err);
+  }
+}
+
 // Add message to chat
-function addMessage(text, isUser, from) {
+function addMessage(msg, isSender) {
   const message = document.createElement('div');
-  message.classList.add('message', isUser ? 'user' : 'other');
-  message.textContent = text;
-  message.setAttribute('data-time', new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+  message.classList.add('message', isSender ? 'user' : 'other');
+  const sender = isSender ? userName : msg.from || recipient;
+  const content = msg.message || '';
+  const timestamp = msg.timestamp 
+    ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  message.innerHTML = `
+    <strong>${sender}:</strong> ${content}
+    <br><small>${timestamp}</small>
+  `;
   chatMessages.appendChild(message);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
@@ -60,11 +88,14 @@ function sendPrivateMessage() {
   if (!recipient) return window.location.href = 'friends.html';
   if (!userName) return window.location.href = 'login.html';
 
-  socket.emit('privateMessage', {
+  const message = {
     from: userName,
     to: recipient,
     message: text,
-  });
+    timestamp: new Date().toISOString()
+  };
+  socket.emit('privateMessage', message);
+  addMessage(message, true);
   messageInput.value = '';
 }
 
@@ -73,31 +104,44 @@ socket.on('connect', () => {
   console.log('✅ Connected:', socket.id);
   socket.emit('auth', { user: userName });
   socket.emit('chat message2', { user: userName });
+  fetchChatHistory();
+  socket.emit('getOldMessages', { user1: userName, user2: recipient });
 });
 
 socket.on('reconnect', (attempt) => {
   console.log(`✅ Reconnected after ${attempt} attempts`);
   socket.emit('auth', { user: userName });
   socket.emit('chat message2', { user: userName });
+  fetchChatHistory();
+  socket.emit('getOldMessages', { user1: userName, user2: recipient });
 });
 
-socket.on('privateMessage', ({ from, message, isSender }) => {
+socket.on('privateMessage', ({ from, message, isSender, timestamp }) => {
   if (from === recipient || isSender) {
-    addMessage(message, isSender, from);
+    addMessage({ from, message, timestamp }, isSender);
   }
 });
 
-socket.on('error', (data) => {
-  console.error('Server error:', data.message);
-  alert(data.message);
+socket.on('oldMessages', (messages) => {
+  messages.forEach(msg => addMessage(msg, msg.from === userName));
+});
+
+socket.on('error', ({ message }) => {
+  console.error('Server error:', message);
+  alert(message);
 });
 
 socket.on('incomingRequest', ({ from, mode }) => {
   if (mode === 'text') {
-    alert(`${from} wants to chat with you!`);
-    localStorage.setItem('chat_with', from);
-    recipientNameEl.textContent = from;
-    recipientAvatarEl.textContent = from.slice(0, 2).toUpperCase();
+    if (confirm(`${from} wants to chat with you! Accept?`)) {
+      window.location.href = `text.html?to=${encodeURIComponent(from)}`;
+    }
+  } else if (mode === 'call') {
+    if (confirm(`${from} is calling you! Accept?`)) {
+      window.location.href = `call.html?to=${encodeURIComponent(from)}&opcode=true`;
+    } else {
+      socket.emit('endCall', { from: userName, to: from });
+    }
   }
 });
 

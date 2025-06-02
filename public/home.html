@@ -6,7 +6,9 @@
 
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI CHAT</title>
+  <title>~HINA</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
   <link rel="stylesheet" href="navbar.css">
 </head>
 
@@ -15,7 +17,7 @@
     <!-- Enhanced Navbar with Animations -->
     <nav class="navbar" style="animation: slideIn 0.5s ease-out;">
       <div class="logo" style="display: flex; align-items: center; transition: transform 0.3s ease;">
-        <span style="color: var(--accent); font-size: 1.8rem; margin-right: 5px;">Chat</span>App
+        <span style="color: var(--accent); font-size: 1.8rem; margin-right: 5px;">~HINA</span>BY SOURAV
       </div>
       <input type="checkbox" id="menu-toggle">
       <label for="menu-toggle" class="hamburger">
@@ -41,15 +43,52 @@
         <li><a href="f.html" class="nav-link"
             style="display: flex; align-items: center; gap: 5px; transition: transform 0.2s ease;"><span>👥</span>Friends</a>
         </li>
-        <li><a href="model _call.html"  class="nav-link"
-            style="display: flex; align-items: center; gap: 5px; transition: transform 0.2s ease;"><span>^_^</span>HINA!</a></li>
+        <li><a href="model _call.html" class="nav-link"
+            style="display: flex; align-items: center; gap: 5px; transition: transform 0.2s ease;"><span>^_^</span>HINA!</a>
+        </li>
       </ul>
     </nav>
     <!-- Header -->
-    <div class="chat-header">
-      Chat App
-      <button class="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
-    </div>
+   <div class="chat-header">
+  <span class="hina-logo">💫🌸 𓆩⟡ HINA ⟡𓆪 🌸💫</span>
+  <button class="theme-toggle" onclick="toggleTheme()">🌓 Toggle Theme</button>
+</div>
+<style>.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(to right, #1e1e2f, #2e2e3f);
+  padding: 15px 25px;
+  border-radius: 12px;
+  box-shadow: 0 0 12px rgba(255, 105, 180, 0.3);
+  color: #ffccff;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.hina-logo {
+  font-size: 1.6rem;
+  font-weight: bold;
+  text-shadow: 0 0 5px #ff66cc, 0 0 10px #ff99cc;
+  white-space: nowrap;
+}
+
+.theme-toggle {
+  background-color: #ff66cc;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  font-size: 0.95rem;
+  font-weight: bold;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  box-shadow: 0 0 10px rgba(255, 105, 180, 0.4);
+}
+
+.theme-toggle:hover {
+  background-color: #e055bb;
+}
+</style>
     <!-- Chat body -->
     <div class="chat-messages" id="here">
       <div class="notification" style="
@@ -85,9 +124,10 @@
       currentThemeIndex = themes.indexOf(savedTheme);
       document.documentElement.setAttribute('data-theme', savedTheme);
     } else {
-      document.documentElement.setAttribute('data-theme', themes[currentThemeIndex]);
+      currentThemeIndex = themes.indexOf('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
     }
-
+    
     function toggleTheme() {
       currentThemeIndex = (currentThemeIndex + 1) % themes.length;
       const newTheme = themes[currentThemeIndex];
