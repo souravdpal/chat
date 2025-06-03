@@ -136,7 +136,7 @@ def retrieve_full_memory(user):
     return [{"role": role, "content": content, "timestamp": timestamp} for role, content, timestamp in db_messages]
 
 # Environment variables
-API_KEY = os.getenv("GROQ_API_KEY", "test_dummy_key")
+API_KEY = os.getenv("GROQ_API_KEY", "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")
 MODEL_NAME = os.getenv("DEFAULT_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
 PROMPT_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prompts.json")
 
