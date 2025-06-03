@@ -4,46 +4,230 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
 const bcrypt = require('bcryptjs');
-const axios = require('axios');
 const fs = require('fs').promises;
 const mongoose = require('mongoose');
 const runPythonChat = require('./runPythonChat');
 const runWikiProcess = require('./runWikiProcess');
 require('dotenv').config();
+const winston = require('winston');
+const rateLimit = require('express-rate-limit');
+const lockfile = require('proper-lockfile');
+const { body, validationResult } = require('express-validator');
 
 const app = express();
 const server = http.createServer(app);
 const port = process.env.PORT || 3000;
-const saltRounds = 10;
-const DATA_DIR = path.join(__dirname, '..', 'data', 'json');
-const CHAT_FILE = path.join(DATA_DIR, 'chat_history.json');
-const MAX_MESSAGES_PER_TYPE = 20;
+const saltRounds = parseInt(process.env.SALT_ROUNDS) || 12;
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data', 'json');
+const CHAT_FILE_PREFIX = path.join(DATA_DIR, 'chat_history');
+const MAX_MESSAGES_PER_FILE = parseInt(process.env.MAX_MESSAGES_PER_FILE) || 10000;
+let chatFileIndex = 0;
+
+// Logger setup
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'combined.log' }),
+  ],
+});
+
+if (process.env.NODE_ENV !== 'production') {
+  logger.add(new winston.transports.Console({
+    format: winston.format.simple(),
+  }));
+}
+
+// Helper to get all chat history files
+async function getAllChatFiles() {
+  try {
+    const files = await fs.readdir(DATA_DIR);
+    return files
+      .filter(f => f.startsWith('chat_history') && f.endsWith('.json'))
+      .sort((a, b) => {
+        const ai = parseInt(a.replace('chat_history', '').replace('.json', '')) || 0;
+        const bi = parseInt(b.replace('chat_history', '').replace('.json', '')) || 0;
+        return ai - bi;
+      })
+      .map(f => path.join(DATA_DIR, f));
+  } catch (err) {
+    logger.error('Error listing chat files:', err);
+    return [path.join(DATA_DIR, 'chat_history.json')];
+  }
+}
+
+// Helper to get current chat file path
+function getCurrentChatFile() {
+  return chatFileIndex === 0
+    ? `${CHAT_FILE_PREFIX}.json`
+    : `${CHAT_FILE_PREFIX}${chatFileIndex}.json`;
+}
+
+// Initialize chat history file
+async function initChatFile() {
+  try {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    const files = await getAllChatFiles();
+    if (files.length === 0) {
+      await fs.writeFile(`${CHAT_FILE_PREFIX}.json`, JSON.stringify({ msg: [] }, null, 2));
+      chatFileIndex = 0;
+      logger.info(`Created new chat history file at ${CHAT_FILE_PREFIX}.json`);
+    } else {
+      const lastFile = files[files.length - 1];
+      const match = lastFile.match(/chat_history(\d*)\.json$/);
+      chatFileIndex = match && match[1] ? parseInt(match[1]) : 0;
+      logger.info(`Using chat history file: ${lastFile}`);
+    }
+  } catch (err) {
+    logger.error('Error initializing chat file:', err);
+    throw err;
+  }
+}
+
+// Save AI message to JSON file
+async function saveMessage(type, message) {
+  if (type !== 'msg') return; // Only store AI chats
+  const filePath = getCurrentChatFile();
+  try {
+    const release = await lockfile.lock(filePath, { retries: 5 });
+    try {
+      let data;
+      try {
+        data = JSON.parse(await fs.readFile(filePath));
+      } catch {
+        data = { msg: [] };
+      }
+      data.msg = data.msg || [];
+      data.msg.push(message);
+
+      if (data.msg.length >= MAX_MESSAGES_PER_FILE) {
+        chatFileIndex += 1;
+        const newFilePath = getCurrentChatFile();
+        await fs.writeFile(newFilePath, JSON.stringify({ msg: [message] }, null, 2));
+        logger.info(`Rotated chat history to ${newFilePath}`);
+      } else {
+        await fs.writeFile(filePath, JSON.stringify(data, null, 2));
+      }
+    } finally {
+      await release();
+    }
+  } catch (err) {
+    logger.error('Error saving AI message:', err);
+  }
+}
+
+// Get AI chat history
+async function getChatHistory(type, user1) {
+  if (type !== 'msg') return []; // Only retrieve AI chats
+  try {
+    const files = await getAllChatFiles();
+    let messages = [];
+    for (const file of files) {
+      try {
+        const data = JSON.parse(await fs.readFile(file));
+        if (Array.isArray(data.msg)) {
+          messages = messages.concat(data.msg);
+        }
+      } catch {}
+    }
+    if (user1) {
+      messages = messages.filter((msg) => msg.username === user1);
+    }
+    return messages.slice(-1000);
+  } catch (err) {
+    logger.error('Error reading AI message history:', err);
+    return [];
+  }
+}
 
 // CORS configuration
 const io = new Server(server, {
   cors: {
-    origin: [
+    origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [
       'http://localhost:3000',
-      'https://46fc-49-36-191-72.ngrok-free.app',
       'https://chatgpt-voice-assistant.vercel.app',
-      'https://192.168.0.123:3000',
-      'https://1cb5-49-36-191-72.ngrok-free.app',
-      '192.168.0.123:3000',
-      // Replace 'https://your-ngrok-id.ngrok.io' with actual ngrok URL or use dynamic handling
     ],
     methods: ['GET', 'POST'],
     credentials: true,
   },
 });
-//const runPythonChat = require('./runPythonChat');
-//const runWikiProcess = require('./runWikiProcess'); // Add new handler
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [
+    'http://localhost:3000',
+    'https://chatgpt-voice-assistant.vercel.app',
+  ],
+  credentials: true,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.text());
 app.use(express.static(path.join(__dirname, '..', 'public'), { extensions: ['html'] }));
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+});
+app.use('/msghome', limiter);
+app.use('/wiki_cmd', limiter);
+
+// API Key Authentication Middleware
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 50, // 50 requests per minute
+});
+
+const authenticateApiKey = async (req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
+  if (!apiKey) {
+    logger.error('API request denied: No API key provided');
+    return res.status(400).json({ error: 'API key required' });
+  }
+  try {
+    if (apiKey !== process.env.HINA_API_KEY) {
+      logger.error('API request denied: Invalid API key');
+      return res.status(401).json({ error: 'Invalid API key' });
+    }
+    logger.info('API key validated successfully');
+    next();
+  } catch (error) {
+    logger.error('Error validating API key:', error);
+    res.status(error.statusCode || 500).json({ error: error.message || 'Internal server error' });
+  }
+}
+
+// New Public API Endpoint for Hina
+// The API key is a secret value expected in the 'x-api-key' HTTP header for requests to /api/hina.
+// It is compared to the value in process.env.HINA_API_KEY (from your .env file).
+// Example usage:
+//   curl -X POST http://localhost:3000/api/hina -H "x-api-key: YOUR_API_KEY" -d '{"msg":"hello","username":"user"}' -H "Content-Type: application/json"
+app.post('/api/hina', [apiLimiter, authenticateApiKey], [
+  body('msg').notEmpty().withMessage('Message required'),
+  body('username').notEmpty().withMessage('Username required'),
+  body('name').optional().trim().escape(),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.error('API validation error:', errors.array()[0].msg);
+    return res.status(400).json({ error: errors.array()[0].msg });
+  }
+  const { msg, username, name } = req.body;
+  try {
+    const { reply } = await runPythonChat({ msg, username, name });
+    logger.info(`API response for "${msg}" by ${username}: ${reply}`);
+    const message = { message: msg, reply, timestamp: new Date().toISOString(), username };
+    await saveMessage('msg', message);
+    res.json({ reply });
+  } catch (err) {
+    logger.error(`API error in /api/hina: ${err.message}`);
+    res.status(500).json({ error: 'Failed to get AI reply' });
+  }
+});
 
 // Serve welcome page
 app.get('/', (req, res) => {
@@ -51,244 +235,192 @@ app.get('/', (req, res) => {
 });
 
 // MongoDB connection
-mongoose
-  .connect(process.env.MONGO_URI || 'mongodb://localhost:27017/chat_app')
-  .then(() => console.log('Connected to MongoDB!'))
-  .catch((err) => console.error('MongoDB connection error:', err));
+async function connectMongoDB() {
+  const maxRetries = 5;
+  let retries = 0;
+  while (retries < maxRetries) {
+    try {
+      await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/chat_app');
+      logger.info('Connected to MongoDB!');
+      return;
+    } catch (err) {
+      retries += 1;
+      logger.error(`MongoDB connection attempt ${retries} failed:`, err);
+      if (retries === maxRetries) {
+        logger.error('Max MongoDB connection retries reached. Exiting...');
+        process.exit(1);
+      }
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    }
+  }
+}
 
 // User Schema
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
-    user: { type: String, required: true, unique: true },
+    user: { type: String, required: true, unique: true, index: true },
     key1: { type: String, required: true },
-    f: { type: [String], default: [] }, // Friends list
-    fr_await: { type: [String], default: [] }, // Friend requests awaiting response
-    status: { type: Boolean, default: false }, // Online status
+    f: { type: [String], default: [], index: true },
+    fr_await: { type: [String], default: [] },
+    status: { type: Boolean, default: false, index: true },
   },
   { timestamps: true }
 );
 
 const User = mongoose.model('User', userSchema);
 
-// Initialize chat history file
-async function initChatFile() {
-  try {
-    await fs.mkdir(DATA_DIR, { recursive: true });
-    try {
-      await fs.access(CHAT_FILE);
-    } catch {
-      console.log(`Chat history file not found at ${CHAT_FILE}. Creating a new one...`);
-      await fs.writeFile(CHAT_FILE, JSON.stringify({ msg: [] }, null, 2));
-      console.log(`New chat history file created at ${CHAT_FILE}`);
-    }
-  } catch (err) {
-    console.error('Error initializing chat file:', err);
-    throw err;
-  }
-}
-
-// Save AI message to JSON file
-async function saveMessage(type, message) {
-  if (type !== 'msg') return;
-  try {
-    const data = JSON.parse(await fs.readFile(CHAT_FILE));
-    data.msg = data.msg || [];
-    data.msg.push(message);
-    if (data.msg.length > MAX_MESSAGES_PER_TYPE) {
-      data.msg = data.msg.slice(-MAX_MESSAGES_PER_TYPE);
-    }
-    await fs.writeFile(CHAT_FILE, JSON.stringify(data, null, 2));
-  } catch (err) {
-    console.error('Error saving AI message:', err);
-  }
-}
-
-// Get AI chat history
-async function getChatHistory(type, user1) {
-  if (type !== 'msg') return [];
-  try {
-    const data = JSON.parse(await fs.readFile(CHAT_FILE));
-    let messages = data.msg || [];
-    if (user1) {
-      messages = messages.filter((msg) => msg.username === user1);
-    }
-    return messages;
-  } catch (err) {
-    console.error('Error reading AI message history:', err);
-    return [];
-  }
-}
-
-// Check if user exists
-async function exist(username) {
-  try {
-    const user = await User.findOne({ user: username }, { user: 1, name: 1, fr_await: 1, f: 1, status: 1 });
-    return user;
-  } catch (err) {
-    console.error('Error checking user existence:', err);
-    return null;
-  }
-}
+// Input validation middleware
+const sanitizeInput = [
+  body('*').trim().escape(),
+];
 
 // User Registration
-app.post('/user', async (req, res) => {
-  const { name, user, key } = req.body;
-
-  if (!name || !user || !key) {
-    return res.status(400).json({ error: 'Name, username, and password are required.' });
+app.post('/user', sanitizeInput, [
+  body('name').notEmpty().withMessage('Name is required'),
+  body('user').notEmpty().withMessage('Username is required'),
+  body('key').notEmpty().withMessage('Password is required'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ error: errors.array()[0].msg });
   }
-
+  const { name, user, key } = req.body;
   try {
     const existingUser = await User.findOne({ user });
     if (existingUser) {
-      console.log('User already exists');
+      logger.info(`Registration attempt failed: User ${user} already exists`);
       return res.status(400).json({ error: 'User already exists!' });
     }
-
     const hashedKey = await bcrypt.hash(key, saltRounds);
     const newUser = new User({ name, user, key1: hashedKey });
     await newUser.save();
-
-    console.log(`${newUser.name} registered successfully`);
+    logger.info(`${newUser.name} registered successfully`);
     res.status(200).json({ message: `${newUser.name} registered successfully! Please login.` });
   } catch (err) {
-    console.error('Registration error:', err);
+    logger.error('Registration error:', err);
     res.status(500).json({ error: 'Registration failed due to server error.' });
   }
 });
 
-
-
 // User Login
-app.post('/cred', async (req, res) => {
-    console.log('Request body:', req.body); // Log the request body
-    const { user_log, key_log } = req.body;
-
-    if (!user_log || !key_log) {
-        return res.status(400).json({ error: 'Username and password are required.' });
-    }
-
-    try {
-        const user = await User.findOne({ user: user_log }, { user: 1, name: 1, key1: 1 });
-        console.log('User found:', user); // Log the user document
-
-        if (!user) {
-            console.log('User not found');
-            return res.status(400).json({ error: 'User does not exist!' });
-        }
-
-        if (!user.key1) {
-            console.log('No key1 field found for user:', user_log);
-            return res.status(500).json({ error: 'User password not set in database.' });
-        }
-
-        const passwordMatch = await bcrypt.compare(key_log, user.key1);
-        if (!passwordMatch) {
-            console.log('Incorrect password');
-            return res.status(400).json({ error: 'Incorrect password!' });
-        }
-
-        res.status(200).json({ name: user.name, user: user.user });
-    } catch (err) {
-        console.error('Login error:', err);
-        res.status(500).json({ error: 'Server error during login.' });
-    }
-});
-// AI Chat Endpoint
-// AI Home Chat Endpoint (Using runPythonChat)
-app.post('/msghome', async (req, res) => {
-  const { msg } = req.body;
-  if (!msg) {
-    console.log('Missing msg field for /msghome');
-    return res.status(400).json({ error: 'Message required' });
+app.post('/cred', sanitizeInput, [
+  body('user_log').notEmpty().withMessage('Username is required'),
+  body('key_log').notEmpty().withMessage('Password is required'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ error: errors.array()[0].msg });
   }
-  console.log(`AI message: ${msg}`);
+  const { user_log, key_log } = req.body;
+  try {
+    const user = await User.findOne({ user: user_log }, { user: 1, name: 1, key1: 1 });
+    if (!user) {
+      logger.info(`Login attempt failed: User ${user_log} not found`);
+      return res.status(400).json({ error: 'User does not exist!' });
+    }
+    const passwordMatch = await bcrypt.compare(key_log, user.key1);
+    if (!passwordMatch) {
+      logger.info(`Login attempt failed: Incorrect password for ${user_log}`);
+      return res.status(400).json({ error: 'Incorrect password!' });
+    }
+    res.status(200).json({ name: user.name, user: user.user });
+  } catch (err) {
+    logger.error('Login error:', err);
+    res.status(500).json({ error: 'Server error during login.' });
+  }
+});
+
+// AI Chat Endpoint
+app.post('/msghome', sanitizeInput, [
+  body('msg').notEmpty().withMessage('Message required'),
+  body('username').notEmpty().withMessage('Username required'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ error: errors.array()[0].msg });
+  }
+  const { msg, username } = req.body;
   try {
     const { reply } = await runPythonChat({ msg });
-    console.log(`AI response: ${reply}`);
+    logger.info(`AI response for "${msg}" by ${username}: ${reply}`);
+    const message = { message: msg, reply, timestamp: new Date().toISOString(), username };
+    await saveMessage('msg', message);
+    const userSocketId = userSocketMap.get(username);
+    if (userSocketId) {
+      io.to(userSocketId).emit('ai message', { type: 'msg', username: 'Hina', message: reply, timestamp: message.timestamp });
+    }
     res.json({ reply });
   } catch (err) {
-    console.error(`AI error in /msghome: ${err.message}`, err.stack);
-    res.status(500).json({ error: 'Failed to get AI reply', details: err.message });
-  }
-});
-// Home AI Chat Endpoint (Original, using axios)
-// AI Home Chat Endpoint (Using runPythonChat)
-app.post('/msg', async (req, res) => {
-  const { msg } = req.body;
-  if (!msg) {
-    console.log('Missing msg field for /msghome');
-    return res.status(400).json({ error: 'Message required' });
-  }
-  console.log(`${msg}`);
-  try {
-    const { reply } = await runPythonChat({ msg });
-    console.log(`AI response: ${reply}`);
-    res.json({reply});
-  } catch (err) {
-    console.error(`AI error in /msghome: ${err.message}`, err.stack);
-    res.status(500).json({ error: 'Failed to get AI reply', details: err.message });
+    logger.error(`AI error in /msghome: ${err.message}`);
+    res.status(500).json({ error: 'Failed to get AI reply' });
   }
 });
 
-// Wikipedia API Endpoint (Using runWikiProcess)
-app.post('/wiki_cmd', async (req, res) => {
-  const { msg } = req.body;
-  if (!msg) {
-    console.log('Missing msg field for /wiki_cmd');
-    return res.status(400).json({ error: 'Message required' });
+// Wiki Query Endpoint (Non-persistent)
+app.post('/wiki_cmd', sanitizeInput, [
+  body('msg').notEmpty().withMessage('Message required'),
+  body('username').notEmpty().withMessage('Username required'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ error: errors.array()[0].msg });
   }
-  console.log(`user ask from wiki ${msg}`);
+  const { msg, username } = req.body;
   try {
     const { reply } = await runWikiProcess({ prompt: msg });
-    if (reply) {
-      console.log(`wiki ${reply}`);
-    } else {
-      console.warn('Wiki reply is undefined or empty');
+    logger.info(`Wiki response for "${msg}" by ${username}: ${reply || 'No reply'}`);
+    const userSocketId = userSocketMap.get(username);
+    if (userSocketId) {
+      io.to(userSocketId).emit('wiki message', { username: 'Hina', reply: reply || 'page not found', timestamp: new Date().toISOString() });
     }
-    res.json({ reply: `wiki says : ${reply}` });
+    res.json({ reply: `wiki says: ${reply || 'page not found'}` });
   } catch (err) {
-    console.error(`Wiki error in /wiki_cmd:${err.message}`, err.stack);
-    res.json({ reply: 'server: page not found', details: err.message });
+    logger.error(`Wiki error in /wiki_cmd: ${err.message}`);
+    res.json({ error: 'server: page not found' });
   }
 });
+
 // Chat History Endpoint
 app.get('/chat_history', async (req, res) => {
   const { type, user1 } = req.query;
-  if (!type || !user1) {
-    return res.status(400).json({ error: 'Type and user1 are required' });
+  if (type !== 'msg' || !user1) {
+    return res.status(400).json({ error: 'Type must be "msg" and user1 is required' });
   }
   try {
     const messages = await getChatHistory(type, user1);
     res.json({ messages });
   } catch (err) {
-    console.error(`Error fetching ${type} history:`, err);
+    logger.error(`Error fetching AI history:`, err);
     res.status(500).json({ error: 'Failed to fetch chat history' });
   }
 });
 
-// Send Friend Request
-app.post('/friend_request', async (req, res) => {
-  const { from, to } = req.body;
-  if (!from || !to) {
-    return res.status(400).json({ error: 'From and to required' });
+// Friend Request and Other Endpoints
+app.post('/friend_request', sanitizeInput, [
+  body('from').notEmpty().withMessage('From is required'),
+  body('to').notEmpty().withMessage('To is required'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ error: errors.array()[0].msg });
   }
+  const { from, to } = req.body;
   if (from === to) {
     return res.status(400).json({ error: 'Cannot add yourself' });
   }
   try {
     const recipient = await User.findOne({ user: to }, { user: 1, fr_await: 1, f: 1 });
     if (!recipient) {
-      console.log(`User ${to} not found`);
+      logger.info(`Friend request failed: User ${to} not found`);
       return res.status(400).json({ error: `${to} not found` });
     }
     if (recipient.fr_await.includes(from)) {
-      console.log(`Friend request already sent to ${to}`);
+      logger.info(`Friend request already sent from ${from} to ${to}`);
       return res.status(400).json({ error: `Friend request already sent to ${to}` });
     }
     if (recipient.f.includes(from)) {
-      console.log(`${to} is already a friend`);
+      logger.info(`${to} is already a friend of ${from}`);
       return res.status(400).json({ error: `${to} is already a friend` });
     }
     await User.updateOne({ user: to }, { $addToSet: { fr_await: from } });
@@ -296,20 +428,24 @@ app.post('/friend_request', async (req, res) => {
     if (recipientSocketId) {
       io.to(recipientSocketId).emit('friendRequest', { from });
     }
-    console.log(`Friend request sent from ${from} to ${to}`);
+    logger.info(`Friend request sent from ${from} to ${to}`);
     res.json({ message: `Friend request sent to ${to}` });
   } catch (err) {
-    console.error('Friend request error:', err);
+    logger.error('Friend request error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Accept/Reject Friend Request
-app.post('/fr_response', async (req, res) => {
-  const { action, from, to } = req.body;
-  if (!action || !from || !to) {
-    return res.status(400).json({ error: 'Action, from, and to required' });
+app.post('/fr_response', sanitizeInput, [
+  body('action').isIn(['accept', 'reject']).withMessage('Invalid action'),
+  body('from').notEmpty().withMessage('From is required'),
+  body('to').notEmpty().withMessage('To is required'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ error: errors.array()[0].msg });
   }
+  const { action, from, to } = req.body;
   try {
     const recipient = await User.findOne({ user: to }, { fr_await: 1, f: 1 });
     if (!recipient || !recipient.fr_await.includes(from)) {
@@ -329,22 +465,19 @@ app.post('/fr_response', async (req, res) => {
       if (recipientSocketId) {
         io.to(recipientSocketId).emit('friendRequestAccepted', { from });
       }
-      console.log(`Friend request accepted from ${from} to ${to}`);
+      logger.info(`Friend request accepted from ${from} to ${to}`);
       res.json({ message: 'Friend request accepted', from });
-    } else if (action === 'reject') {
-      await User.updateOne({ user: to }, { $pull: { fr_await: from } });
-      console.log(`Friend request rejected from ${from} to ${to}`);
-      res.json({ message: 'Friend request rejected', from });
     } else {
-      res.status(400).json({ error: 'Invalid action' });
+      await User.updateOne({ user: to }, { $pull: { fr_await: from } });
+      logger.info(`Friend request rejected from ${from} to ${to}`);
+      res.json({ message: 'Friend request rejected', from });
     }
   } catch (err) {
-    console.error('Friend response error:', err);
+    logger.error('Friend response error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Fetch Friend Requests
 app.get('/fr_requests', async (req, res) => {
   const { user } = req.query;
   if (!user) {
@@ -358,12 +491,11 @@ app.get('/fr_requests', async (req, res) => {
       res.status(404).json({ error: 'User not found' });
     }
   } catch (err) {
-    console.error('Friend requests error:', err);
+    logger.error('Friend requests error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Fetch Friends List
 app.get('/friends', async (req, res) => {
   const { user } = req.query;
   if (!user) {
@@ -377,17 +509,19 @@ app.get('/friends', async (req, res) => {
       res.status(404).json({ error: 'User not found' });
     }
   } catch (err) {
-    console.error('Friends fetch error:', err);
+    logger.error('Friends fetch error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Batch Fetch User Statuses
-app.post('/batch_status', async (req, res) => {
-  const { users } = req.body;
-  if (!Array.isArray(users)) {
-    return res.status(400).json({ error: 'Users parameter must be an array' });
+app.post('/batch_status', sanitizeInput, [
+  body('users').isArray().withMessage('Users must be an array'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ error: errors.array()[0].msg });
   }
+  const { users } = req.body;
   try {
     const statuses = await User.find({ user: { $in: users } }, { user: 1, status: 1 });
     const statusMap = statuses.reduce((map, user) => {
@@ -396,12 +530,11 @@ app.post('/batch_status', async (req, res) => {
     }, {});
     res.json({ statuses: statusMap });
   } catch (err) {
-    console.error('Batch status error:', err);
+    logger.error('Batch status error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// User Status
 app.get('/status', async (req, res) => {
   const { user } = req.query;
   if (!user) {
@@ -414,32 +547,27 @@ app.get('/status', async (req, res) => {
     }
     res.json({ status: userData.status ? 'online' : 'offline' });
   } catch (err) {
-    console.error('Status error:', err);
+    logger.error('Status error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Delete User
 app.delete('/dl/:username', async (req, res) => {
   const { username } = req.params;
-  console.log(`Deleting user ${username}`);
+  logger.info(`Deleting user ${username}`);
   try {
     const result = await User.deleteOne({ user: username });
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
-    console.log(`User ${username} deleted`);
+    logger.info(`User ${username} deleted`);
     res.json({ message: `User ${username} deleted successfully` });
   } catch (err) {
-    console.error('Delete user error:', err);
+    logger.error('Delete user error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Initiate Call/Text
-// --- WebRTC signaling endpoints and helpers (integrated with main server) ---
-
-// Initiate Call/Text (for compatibility with your API)
 app.get('/initiate', async (req, res) => {
   const { user, to, mode } = req.query;
   if (!user || !to || !mode) {
@@ -464,30 +592,20 @@ app.get('/initiate', async (req, res) => {
       res.status(400).json({ error: `${to} is offline` });
     }
   } catch (err) {
-    console.error('Initiate error:', err);
+    logger.error('Initiate error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// --- WebRTC signaling events (compatible with your provided code) ---
-/*
-  The following events are handled in the main io.on('connection') block below,
-  so you do NOT need a separate server for WebRTC signaling.
-  The handlers below are already present in your socket.io section:
-    - offer
-    - answer
-    - iceCandidate
-    - endCall
-    - auth (user status)
-    - disconnect (user status)
-  All events use userSocketMap for user <-> socket.id mapping.
-*/
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', uptime: process.uptime() });
+});
 
 // Socket.IO Connection
 const userSocketMap = new Map();
 
 io.on('connection', (socket) => {
-  console.log(`✅ User connected: ${socket.id}`);
+  logger.info(`User connected: ${socket.id}`);
 
   socket.on('auth', async ({ user }) => {
     if (!user) {
@@ -512,16 +630,16 @@ io.on('connection', (socket) => {
           }
         });
       }
-      console.log(`${user} authenticated and set to online`);
+      logger.info(`${user} authenticated and set to online`);
     } catch (err) {
-      console.error('Auth error:', err);
+      logger.error('Auth error:', err);
       socket.emit('error', { message: 'Failed to authenticate' });
     }
   });
 
   socket.on('chat message2', ({ user }) => {
     if (user) socket.user = user;
-    console.log(`Chat message ping from ${user}`);
+    logger.info(`Chat message ping from ${user}`);
   });
 
   socket.on('privateMessage', ({ from, to, message, timestamp }) => {
@@ -533,69 +651,76 @@ io.on('connection', (socket) => {
     if (recipientSocketId) {
       io.to(recipientSocketId).emit('privateMessage', { from, message, isSender: false, timestamp });
       socket.emit('privateMessage', { from, message, isSender: true, timestamp });
-      console.log(`Message from ${from} to ${to}: ${message}`);
+      logger.info(`Message from ${from} to ${to}: ${message}`);
     } else {
       socket.emit('error', { message: `${to} is offline` });
-      console.log(`Message failed: ${to} offline`);
+      logger.info(`Message failed: ${to} offline`);
     }
-  });
-
-  socket.on('getOldMessages', async ({ from, to }) => {
-    const messages = await getChatHistory('personalchat', from, to);
-    socket.emit('oldMessages', { messages });
   });
 
   socket.on('offer', ({ from, to, offer }) => {
+    if (!from || !to || !offer) {
+      socket.emit('error', { message: 'Invalid offer data' });
+      return;
+    }
     const recipientSocketId = userSocketMap.get(to);
     if (recipientSocketId) {
       io.to(recipientSocketId).emit('offer', { from, offer });
-      console.log(`Offer sent from ${from} to ${to}`);
+      logger.info(`Offer sent from ${from} to ${to}`);
     } else {
       socket.emit('error', { message: `${to} is offline` });
-    }
-  });
-
-  socket.on('callBusy', ({ from, to }) => {
-    const recipientSocketId = userSocketMap.get(to);
-    if (recipientSocketId) {
-      io.to(recipientSocketId).emit('callBusy', { from });
-      console.log(`Call busy signal from ${from} to ${to}`);
     }
   });
 
   socket.on('answer', ({ from, to, answer }) => {
+    if (!from || !to || !answer) {
+      socket.emit('error', { message: 'Invalid answer data' });
+      return;
+    }
     const recipientSocketId = userSocketMap.get(to);
     if (recipientSocketId) {
       io.to(recipientSocketId).emit('answer', { from, answer });
-      console.log(`Answer sent from ${from} to ${to}`);
+      logger.info(`Answer sent from ${from} to ${to}`);
     } else {
       socket.emit('error', { message: `${to} is offline` });
     }
   });
 
   socket.on('iceCandidate', ({ from, to, candidate }) => {
+    if (!from || !to || !candidate) {
+      socket.emit('error', { message: 'Invalid ICE candidate data' });
+      return;
+    }
     const recipientSocketId = userSocketMap.get(to);
     if (recipientSocketId) {
       io.to(recipientSocketId).emit('iceCandidate', { from, candidate });
-      console.log(`ICE candidate sent from ${from} to ${to}`);
+      logger.info(`ICE candidate sent from ${from} to ${to}`);
     } else {
       socket.emit('error', { message: `${to} is offline` });
     }
   });
 
   socket.on('endCall', ({ from, to }) => {
+    if (!from || !to) {
+      socket.emit('error', { message: 'Invalid end call data' });
+      return;
+    }
     const recipientSocketId = userSocketMap.get(to);
     if (recipientSocketId) {
       io.to(recipientSocketId).emit('endCall', { from });
-      console.log(`End call signal from ${from} to ${to}`);
+      logger.info(`End call signal from ${from} to ${to}`);
     }
   });
 
   socket.on('friendRequestAccepted', ({ from, to }) => {
+    if (!from || !to) {
+      socket.emit('error', { message: 'Invalid friend request accepted data' });
+      return;
+    }
     const recipientSocketId = userSocketMap.get(to);
     if (recipientSocketId) {
       io.to(recipientSocketId).emit('friendRequestAccepted', { from });
-      console.log(`Friend request accepted notification from ${from} to ${to}`);
+      logger.info(`Friend request accepted notification from ${from} to ${to}`);
     }
   });
 
@@ -614,37 +739,57 @@ io.on('connection', (socket) => {
             }
           });
         }
-        console.log(`${user} disconnected and set to offline`);
+        logger.info(`${user} disconnected and set to offline`);
       } catch (err) {
-        console.error('Disconnect error:', err);
+        logger.error('Disconnect error:', err);
       }
     }
-    console.log(`❌ User disconnected: ${socket.id}`);
+    logger.info(`User disconnected: ${socket.id}`);
   });
 });
 
+// Graceful shutdown
+const gracefulShutdown = async () => {
+  logger.info('Starting graceful shutdown...');
+  try {
+    await mongoose.connection.close();
+    logger.info('MongoDB connection closed');
+    server.close(() => {
+      logger.info('HTTP server closed');
+      process.exit(0);
+    });
+  } catch (err) {
+    logger.error('Error during shutdown:', err);
+    process.exit(1);
+  }
+};
+
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
+
 // Start server
-initChatFile()
-  .then(() => {
+async function startServer() {
+  try {
+    await initChatFile();
+    await connectMongoDB();
     server.listen(port, () => {
-      console.log(`Server running on http://localhost:${port}`);
+      logger.info(`Server running on http://localhost:${port}`);
     });
     server.on('error', (err) => {
       if (err.code === 'EADDRINUSE') {
-        console.error(`Port ${port} is already in use. Trying port ${parseInt(port) + 1}...`);
+        logger.error(`Port ${port} is already in use. Trying port ${parseInt(port) + 1}...`);
         server.listen(parseInt(port) + 1, () => {
-          console.log(`Server running on http://localhost:${parseInt(port) + 1}`);
+          logger.info(`Server running on http://localhost:${parseInt(port) + 1}`);
         });
-      } else if (err.code === 'EACCES') {
-        console.error(`Permission denied on port ${port}. Try running with elevated privileges or using a different port.`);
-        process.exit(1);
       } else {
-        console.error('Unexpected server error:', err);
+        logger.error('Unexpected server error:', err);
         process.exit(1);
       }
     });
-  })
-  .catch((err) => {
-    console.error('Failed to initialize chat file:', err);
+  } catch (err) {
+    logger.error('Failed to start server:', err);
     process.exit(1);
-  });
+  }
+}
+
+startServer();

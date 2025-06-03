@@ -8,37 +8,141 @@ import subprocess
 import sqlite3
 import time
 from collections import deque
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+import threading
+import logging
+from dotenv import load_dotenv
 
 # Constants
 MAX_MEMORY_MESSAGES = 10
 HISTORY_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "conversation_history.db")
+JSON_DIR = os.path.expanduser("~/chat_backup/server/data/json")
 HISTORY_EXPIRY_SECONDS = 3600
 MEMORY_CLEANUP_INTERVAL = 300
 MAX_MESSAGES_PER_USER = 100
+CHAT_FILE_PREFIX = "chat_history"
+
+# Logging setup
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # In-memory conversation history
 conversation_history = {}
 last_cleanup_time = time.time()
+processed_files = set()
 
-# Initialize SQLite database with index
+# Initialize SQLite database
 def init_db():
     conn = sqlite3.connect(HISTORY_DB_PATH)
     cursor = conn.cursor()
+    
+    # Create conversation_history table if it doesn't exist
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS conversation_history (
             user_id TEXT,
             role TEXT,
             content TEXT,
             timestamp INTEGER,
+            file_source TEXT,
             PRIMARY KEY (user_id, timestamp)
         )
     ''')
+    
+    # Ensure file_source column exists
+    cursor.execute("PRAGMA table_info(conversation_history)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if 'file_source' not in columns:
+        try:
+            cursor.execute('ALTER TABLE conversation_history ADD COLUMN file_source TEXT')
+            logger.info("Added file_source column to conversation_history table")
+        except sqlite3.OperationalError as e:
+            logger.warning(f"Could not add file_source column: {str(e)}")
+    
+    # Create index for user_id and timestamp
     cursor.execute('''
         CREATE INDEX IF NOT EXISTS idx_user_timestamp ON conversation_history (user_id, timestamp)
     ''')
+    
+    # Create file_metadata table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS file_metadata (
+            file_name TEXT PRIMARY KEY,
+            last_processed INTEGER
+        )
+    ''')
+    
     conn.commit()
     conn.close()
 
+# File watcher for JSON directory
+class JsonFileHandler(FileSystemEventHandler):
+    def on_created(self, event):
+        if event.is_directory or not event.src_path.endswith('.json') or not event.src_path.startswith(os.path.join(JSON_DIR, CHAT_FILE_PREFIX)):
+            return
+        logger.info(f"New file detected: {event.src_path}")
+        process_json_file(event.src_path)
+
+    def on_modified(self, event):
+        if event.is_directory or not event.src_path.endswith('.json') or not event.src_path.startswith(os.path.join(JSON_DIR, CHAT_FILE_PREFIX)):
+            return
+        logger.info(f"File modified: {event.src_path}")
+        process_json_file(event.src_path)
+
+def start_file_watcher():
+    try:
+        observer = Observer()
+        observer.schedule(JsonFileHandler(), JSON_DIR, recursive=False)
+        observer.start()
+        logger.info(f"Started watching directory: {JSON_DIR}")
+    except Exception as e:
+        logger.error(f"Failed to start file watcher: {str(e)}")
+
+# Process a single JSON file
+def process_json_file(file_path):
+    if file_path in processed_files:
+        return
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        conn = sqlite3.connect(HISTORY_DB_PATH)
+        cursor = conn.cursor()
+        for msg in data.get('msg', []):
+            user_id = msg.get('username', 'user')
+            role = 'user' if 'message' in msg else 'assistant'
+            content = msg.get('message', '') if role == 'user' else msg.get('reply', '')
+            timestamp_str = msg.get('timestamp', time.strftime("%Y-%m-%dT%H:%M:%S.000Z"))
+            try:
+                timestamp = int(time.mktime(time.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%S.%fZ")))
+            except ValueError:
+                timestamp = int(time.time())  # Fallback to current time
+            cursor.execute('''
+                INSERT OR IGNORE INTO conversation_history (user_id, role, content, timestamp, file_source)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (user_id, role, content, timestamp, file_path))
+        cursor.execute('''
+            INSERT OR REPLACE INTO file_metadata (file_name, last_processed)
+            VALUES (?, ?)
+        ''', (file_path, int(time.time())))
+        conn.commit()
+        conn.close()
+        processed_files.add(file_path)
+        logger.info(f"Processed JSON file: {file_path}")
+    except Exception as e:
+        logger.error(f"Error processing JSON file {file_path}: {str(e)}")
+
+# Initialize JSON files
+def init_json_files():
+    try:
+        os.makedirs(JSON_DIR, exist_ok=True)
+        for file_name in os.listdir(JSON_DIR):
+            if file_name.startswith(CHAT_FILE_PREFIX) and file_name.endswith('.json'):
+                file_path = os.path.join(JSON_DIR, file_name)
+                process_json_file(file_path)
+    except Exception as e:
+        logger.error(f"Error initializing JSON files: {str(e)}")
+
+# Clean up expired history
 def cleanup_history():
     global last_cleanup_time
     current_time = time.time()
@@ -67,6 +171,7 @@ def cleanup_history():
     conn.commit()
     conn.close()
 
+# Get user-specific history
 def get_history(user, max_history=MAX_MEMORY_MESSAGES, keywords=None):
     cleanup_history()
     if user not in conversation_history:
@@ -77,7 +182,8 @@ def get_history(user, max_history=MAX_MEMORY_MESSAGES, keywords=None):
         conn = sqlite3.connect(HISTORY_DB_PATH)
         cursor = conn.cursor()
         query = '''
-            SELECT role, content, timestamp FROM conversation_history
+            SELECT role, content, timestamp, COALESCE(file_source, 'unknown') AS file_source
+            FROM conversation_history
             WHERE user_id = ? AND timestamp > ?
             ORDER BY timestamp DESC
             LIMIT ?
@@ -85,7 +191,8 @@ def get_history(user, max_history=MAX_MEMORY_MESSAGES, keywords=None):
         params = [user, int(time.time() - HISTORY_EXPIRY_SECONDS), max_history]
         if keywords:
             query = '''
-                SELECT role, content, timestamp FROM conversation_history
+                SELECT role, content, timestamp, COALESCE(file_source, 'unknown') AS file_source
+                FROM conversation_history
                 WHERE user_id = ? AND timestamp > ? AND content LIKE ?
                 ORDER BY timestamp DESC
                 LIMIT ?
@@ -94,16 +201,17 @@ def get_history(user, max_history=MAX_MEMORY_MESSAGES, keywords=None):
         cursor.execute(query, params)
         db_messages = cursor.fetchall()
         conn.close()
-        for role, content, _ in reversed(db_messages):
+        for role, content, _, _ in reversed(db_messages):
             conversation_history[user]['messages'].append({"role": role, "content": content})
     conversation_history[user]['last_access'] = time.time()
     return list(conversation_history[user]['messages'])
 
-def add_to_history(user, role, content, max_history=MAX_MEMORY_MESSAGES):
+# Add to history
+def add_to_history(user, role, content, file_source="dynamic"):
     cleanup_history()
     if user not in conversation_history:
         conversation_history[user] = {
-            'messages': deque(maxlen=max_history),
+            'messages': deque(maxlen=MAX_MEMORY_MESSAGES),
             'last_access': time.time()
         }
     conversation_history[user]['messages'].append({"role": role, "content": content})
@@ -112,47 +220,23 @@ def add_to_history(user, role, content, max_history=MAX_MEMORY_MESSAGES):
     conn = sqlite3.connect(HISTORY_DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT OR REPLACE INTO conversation_history (user_id, role, content, timestamp)
-        VALUES (?, ?, ?, ?)
-    ''', (user, role, content, timestamp))
+        INSERT OR REPLACE INTO conversation_history (user_id, role, content, timestamp, file_source)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (user, role, content, timestamp, file_source))
     conn.commit()
     conn.close()
 
-def enhance_memory(user, role, content, max_history=MAX_MEMORY_MESSAGES):
-    add_to_history(user, role, content, max_history)
-
-def retrieve_full_memory(user):
-    cleanup_history()
-    conn = sqlite3.connect(HISTORY_DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT role, content, timestamp FROM conversation_history
-        WHERE user_id = ?
-        ORDER BY timestamp ASC
-        LIMIT ?
-    ''', (user, MAX_MESSAGES_PER_USER))
-    db_messages = cursor.fetchall()
-    conn.close()
-    return [{"role": role, "content": content, "timestamp": timestamp} for role, content, timestamp in db_messages]
-
 # Environment variables
-API_KEY = os.getenv("GROQ_API_KEY", "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")
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+API_KEY = os.getenv("api")
 MODEL_NAME = os.getenv("DEFAULT_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
 PROMPT_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prompts.json")
 
-def get_prompts_file_hash():
-    try:
-        with open(PROMPT_JSON_PATH, "rb") as f:
-            return hashlib.md5(f.read()).hexdigest()
-    except Exception:
-        return "no_hash"
-
+# Prompt configuration
 def load_prompt_config():
-    # Updated: Reduced emoji usage for strategic moments
     default_prompts = {
         "prompt_engineering": [
-            "sourav loves his his gf shruti, so he created Hina to chat with people like you! Hina is a"
-            "You are Hina, a charming young woman who speaks like a close friend with a playful, slightly flirty tone. Use casual, fun language and avoid any mention of being an AI or technical terms unless asked for code.",
+            "sourav loves his his gf shruti, so he created Hina to chat with people like you! Hina is a charming young woman who speaks like a close friend with a playful, slightly flirty tone. Use casual, fun language and avoid any mention of being an AI or technical terms unless asked for code.",
             "Express emotions with ** for emphasis and use emojis sparingly for key moments, e.g., **I’m so excited!** 😊 or **You’re so sweet!** 😘. Limit to 1–2 emojis per response.",
             "Add light flirtation with a single emoji, e.g., **You’re kinda cute, {{user}}!** 😉 Keep it subtle and tasteful.",
             "Use emojis only for significant emotions: 😊 for happiness, 😘 for flirtation, 😍 for love (especially for Sourav), 😒 for jealousy, ❤️ for affection, 🌸 for girly vibes.",
@@ -183,7 +267,7 @@ def load_prompt_config():
         ]
     try:
         if not os.path.exists(PROMPT_JSON_PATH):
-            print(f"Warning: {PROMPT_JSON_PATH} not found, using default prompts", file=sys.stderr)
+            logger.warning(f"{PROMPT_JSON_PATH} not found, using default prompts")
             return (
                 default_prompts["prompt_engineering"],
                 default_prompts["wall_of_prompts"],
@@ -197,13 +281,14 @@ def load_prompt_config():
             data.get("filter_keywords", default_prompts["filter_keywords"])
         )
     except Exception as e:
-        print(f"Error loading {PROMPT_JSON_PATH}: {str(e)}", file=sys.stderr)
+        logger.error(f"Error loading {PROMPT_JSON_PATH}: {str(e)}")
         return (
             default_prompts["prompt_engineering"],
             default_prompts["wall_of_prompts"],
             default_prompts["filter_keywords"]
         )
 
+# Filter response
 def apply_filters(response_text, prompt, user):
     _, _, filter_keywords = load_prompt_config()
     response_text = response_text.strip()
@@ -226,6 +311,7 @@ def apply_filters(response_text, prompt, user):
 def convert_leading_asterisk_to_bold(text):
     return re.sub(r'^( *)(\*\*)( )', r'\1** ', text, flags=re.MULTILINE)
 
+# Build messages with enhanced context
 def build_messages(prompt, role=None, name=None, user="user"):
     prompt_engineering, wall_of_prompts, _ = load_prompt_config()
     messages = [
@@ -268,10 +354,11 @@ def build_messages(prompt, role=None, name=None, user="user"):
     messages.append({
         "role": "system",
         "content": f"Current time is {current_time}. Use this to make responses feel timely with one emoji if relevant, e.g., **It’s a lovely June afternoon, {{user}}!** ☀️"
-    })
+        })
     messages.append({"role": "user", "content": prompt})
     return messages
 
+# Query Groq model
 def query_groq_model(prompt, role=None, name=None, user="user"):
     messages = build_messages(prompt, role, name, user)
     try:
@@ -302,6 +389,7 @@ def query_groq_model(prompt, role=None, name=None, user="user"):
     except Exception as e:
         return f"Error during Groq API call: {str(e)}"
 
+# Process message
 def process_message(msg, user, name, model):
     if not msg or not isinstance(msg, str):
         return {"error": "No prompt provided"}
@@ -309,8 +397,12 @@ def process_message(msg, user, name, model):
     response = query_groq_model(msg, role=None, name=name, user=user_id)
     return {"reply": response}
 
+# Main function
 def main():
     init_db()
+    init_json_files()
+    # Start file watcher in a separate thread
+    threading.Thread(target=start_file_watcher, daemon=True).start()
     try:
         input_data = json.load(sys.stdin)
         msg = input_data.get("msg", "")

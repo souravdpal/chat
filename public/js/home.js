@@ -11,39 +11,33 @@ const type = document.getElementById('type');
 const input = document.getElementById('take');
 const joiner = document.getElementById('join');
 
-
-// Available models for validation
+// Available models (placeholder messages)
 const avail_models = [
-  ...["Anonymous"].filter(name => name !== "Anonymous"),
-  "server : **note : models are not available in this version, but you can use them in the future**",
-  "**because we have Hina and she is working fine in every aspect, we will soon add task-specific models**",
-  /*'deepseek-r1:1.5b',
-  'gemma3:4b',
-  'deepseek-r1:latest',
-  'llama3.1:8b'*/
+  "server: **note: models are not available in this version, but you can use them in the future**",
+  "**because we have Hina and she is working fine in every aspect, we will soon add task-specific models**"
 ];
+
+// Track loaded messages
+const loadedMessages = new Set();
+let isHistoryLoaded = false;
+
+// Generate unique message ID
+function generateMessageId(msg) {
+  const { timestamp, username, message, reply } = msg;
+  const content = message || reply || '';
+  return `${new Date(timestamp || Date.now()).toISOString()}|${username || 'unknown'}|${content}`;
+}
 
 function personalizeText(text) {
   if (!text) return '';
-
   let result = text;
-
-  // Replace {diya}, {{diya}} (any number of curly braces) with "I don't know your diya"
   result = result.replace(/[{]+(name)[}]+/gi, "name");
-
-  // Replace {user}, {{user}}, {name}, {{name}} (any number of curly braces) with name1
   if (name1) {
     result = result.replace(/[{]+(user)[}]+/gi, name1);
   }
-
-  // Bold text between **...**
   result = result.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-  // Remove any remaining curly brackets around text (handles {{{text}}}, etc.)
   result = result.replace(/{{2,}([^{}]+)}{2,}/g, '$1');
   result = result.replace(/{+([^{}]+)}+/g, '$1');
-
-  // Make social/dev URLs clickable as redirect links
   result = result.replace(
     /(?:https?:\/\/)?((?:github\.com|github\.io|instagram\.com|facebook\.com|twitter\.com|linkedin\.com|tiktok\.com|youtube\.com|reddit\.com|medium\.com|dev\.to|discord\.gg|discord\.com|t\.me|telegram\.me|twitch\.tv|snapchat\.com|pinterest\.com|tumblr\.com|bitbucket\.org|gitlab\.com|stackoverflow\.com|codepen\.io|jsfiddle\.net|replit\.com|notion\.so|substack\.com|patreon\.com|buymeacoffee\.com|ko-fi\.com|producthunt\.com|dribbble\.com|behance\.net|fiverr\.com|upwork\.com|freelancer\.com|angel\.co|crunchbase\.com|about\.me|blogspot\.com|wordpress\.com|soundcloud\.com|bandcamp\.com)(\/[^\s<]*)?)/gi,
     (match, domain, path) => {
@@ -51,9 +45,9 @@ function personalizeText(text) {
       return `<a href="${url}" target="_blank" rel="noopener noreferrer">${domain}${path || ''}</a>`;
     }
   );
-
   return result;
 }
+
 // Add message to chat
 function addMessage(msg, isUser) {
   if (!msg) return;
@@ -64,25 +58,25 @@ function addMessage(msg, isUser) {
     msg.reply = personalizeText(msg.reply);
   }
 
+  const messageId = generateMessageId(msg);
+  if (loadedMessages.has(messageId)) return;
+  loadedMessages.add(messageId);
+
   const message = document.createElement('div');
   const chatType = msg.type || 'other';
-  const sender = msg.username || msg.from || 'Anonymous';
+  const sender = isUser ? user : msg.username || msg.from || 'Hina';
   let content = msg.reply || msg.message || '';
 
-  // Skip private messages
   if (chatType === 'personalchat') return;
 
-  // Assign classes
-  message.className = `message ${isUser ? 'user' : chatType === 'msg' && sender === 'Hina' ? 'ai' : chatType === 'worldchat' && msg.reply ? 'ai' : 'other'}`;
+  message.className = `message ${isUser ? 'user' : sender === 'Hina' ? 'ai' : 'other'}`;
 
-  // Handle special content
   if (content.includes('here are list of commands')) {
     message.innerHTML = `
       Ok, *${name1}*, here are the commands:
       <ul class="command-list">
         <li><span class="command">/r</span> = Clear chat</li>
         <li><span class="command">/wiki</span> = Wiki search</li>
-        <li><span class="command">/(model) (prompt)</span> = Use specific model</li>
         <li><span class="command">/save</span> = Save chat</li>
         <li><span class="command">/invite</span> = Invite friend</li>
         <li><span class="command">/f</span> = Chat with friend</li>
@@ -92,7 +86,7 @@ function addMessage(msg, isUser) {
   } else if (content === avail_models.join('\n')) {
     message.innerHTML = `
       <ul class="command-list">
-        ${avail_models.map(model => `<li><span class="command">${model}</span></li>`).join('')}
+        ${avail_models.map(model => `<li><span class="message">${model}</span></li>`).join('')}
       </ul>
     `;
   } else {
@@ -108,25 +102,20 @@ function addMessage(msg, isUser) {
 function formatAIMessage(text) {
   let content = text || '';
   try {
-    // Fix malformed URLs
     content = content.replace(/(https?:\/\/[^\s"'>]+)/g, (url) => {
       if (/<a[^>]*href=['"]?[^'">]*$/.test(content.slice(0, content.indexOf(url)))) return url;
       return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
     });
-    // Bold markdown
     content = content.replace(/\*\*(.*?)\*\*|\*(.*?)\*/g, '<strong>$1$2</strong>');
-    // Code blocks with / delimiter
     content = content.replace(/^\/\n([\s\S]*?)\n\/$/gm, (match, code) => {
       return `<div class="code-wrapper"><pre><code>${code}</code></pre><button class="copy-btn" aria-label="Copy code to clipboard">Copy Code</button></div>`;
     });
-    // Standard code blocks
     content = content.replace(/"""([\s\S]*?).../g, (match, code) => {
       return `<div class="code-wrapper"><pre><code>${code}</code></pre><button class="copy-btn" aria-label="Copy code to clipboard">Copy Code</button></div>`;
     });
     content = content.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
       return `<div class="code-wrapper"><pre><code class="language-${lang || 'text'}">${code}</code></pre><button class="copy-btn" aria-label="Copy code to clipboard">Copy Code</button></div>`;
     });
-    // Inline code
     content = content.replace(/`([^`<>]+)`/g, '<code>$1</code>');
   } catch (e) {
     console.error('Error formatting AI message:', e);
@@ -157,8 +146,7 @@ function initSocket() {
     socket.emit('auth', { user });
     socket.emit('chat message2', { user });
     fetchFriendRequests();
-    fetchChatHistory('msg');
-    fetchChatHistory('worldchat');
+    if (!isHistoryLoaded) fetchChatHistory();
   });
 
   socket.on('reconnect', (attempt) => {
@@ -166,8 +154,6 @@ function initSocket() {
     socket.emit('auth', { user });
     socket.emit('chat message2', { user });
     fetchFriendRequests();
-    fetchChatHistory('msg');
-    fetchChatHistory('worldchat');
   });
 
   socket.on('error', ({ message }) => {
@@ -178,15 +164,13 @@ function initSocket() {
   socket.on('ai message', ({ type, username, message, timestamp }) => {
     console.log('Received AI message:', { type, username, message, timestamp });
     type.innerText = '';
-    addMessage({ type, username: username || 'Hina', message, timestamp }, username === user);
+    addMessage({ type, username, message, timestamp }, username === user);
   });
 
-  socket.on('world message', ({ type, username, message, reply, timestamp }) => {
-    console.log('Received world message:', { type, username, message, reply, timestamp });
+  socket.on('wiki message', ({ username, reply, timestamp }) => {
+    console.log('Received wiki message:', { username, reply, timestamp });
     type.innerText = '';
-    const msg = { type, username, message, timestamp };
-    if (reply) msg.reply = reply;
-    addMessage(msg, username === user);
+    addMessage({ type: 'msg', username, message: reply, timestamp }, false);
   });
 
   socket.on('friendRequest', ({ from }) => {
@@ -213,23 +197,33 @@ function initSocket() {
   });
 }
 
-// Fetch chat history
-async function fetchChatHistory(chatType) {
-  try {
-    const response = await fetch(`/chat_history?type=${encodeURIComponent(chatType)}&user1=${encodeURIComponent(user)}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    const data = await response.json();
-    if (response.ok && Array.isArray(data.messages)) {
-      data.messages.forEach(msg => {
-        if (chatType === 'msg' && msg.username === user) {
+// Fetch AI chat history
+async function fetchChatHistory(retries = 3) {
+  if (!ins || isHistoryLoaded) return;
+  const loadingMsg = document.createElement('div');
+  loadingMsg.className = 'message other';
+  loadingMsg.textContent = `Loading AI chat history...`;
+  ins.appendChild(loadingMsg);
+  ins.scrollTop = ins.scrollHeight;
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(`/chat_history?type=msg&user1=${encodeURIComponent(user)}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+      loadingMsg.remove();
+
+      if (response.ok && Array.isArray(data.messages)) {
+        data.messages.sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));
+        data.messages.forEach(msg => {
           addMessage({
             type: 'msg',
             username: msg.username,
             message: msg.message,
             timestamp: msg.timestamp
-          }, true);
+          }, msg.username === user);
           if (msg.reply) {
             addMessage({
               type: 'msg',
@@ -238,15 +232,20 @@ async function fetchChatHistory(chatType) {
               timestamp: msg.timestamp
             }, false);
           }
-        } else if (chatType === 'worldchat') {
-          addMessage(msg, msg.username === user);
-        }
-      });
-    } else {
-      console.error(`Invalid ${chatType} history response:`, data);
+        });
+        isHistoryLoaded = true;
+        return;
+      } else {
+        throw new Error(`Invalid AI history response: ${JSON.stringify(data)}`);
+      }
+    } catch (err) {
+      console.error(`Attempt ${attempt} failed to fetch AI history:`, err.message);
+      if (attempt === retries) {
+        loadingMsg.textContent = `Failed to load AI history after ${retries} attempts.`;
+        setTimeout(() => loadingMsg.remove(), 3000);
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
     }
-  } catch (err) {
-    console.error(`Error fetching ${chatType} history:`, err.message);
   }
 }
 
@@ -291,7 +290,6 @@ function addFriendRequest(fr1) {
     </div>
   `;
 
-  // Add CSS styles dynamically
   const style = document.createElement('style');
   style.textContent = `
     .friend-request-container {
@@ -410,9 +408,13 @@ async function fetchFriendRequests() {
 async function work() {
   const msg_box = input.value.trim();
   if (!msg_box) return;
-  if(msg_box=='/n'){
-    alert(name1)
+
+  if (msg_box === '/n') {
+    alert(`Logged in as: ${name1} (${user})`);
+    input.value = '';
+    return;
   }
+
   if (msg_box === '/') {
     addMessage({
       type: 'other',
@@ -422,14 +424,17 @@ async function work() {
     input.value = '';
     return;
   } else if (msg_box === '/r') {
-    window.location.reload();
+    ins.innerHTML = '';
+    loadedMessages.clear();
+    isHistoryLoaded = false;
     input.value = '';
+    fetchChatHistory();
     return;
   } else if (msg_box === '/wiki') {
     const for_wiki = prompt('What do you want to ask Wiki?')?.trim();
     if (!for_wiki) return;
     const wikiMsg = {
-      type: 'worldchat',
+      type: 'msg',
       username: user,
       message: for_wiki,
       timestamp: new Date().toISOString()
@@ -442,14 +447,14 @@ async function work() {
       const response = await fetch('/wiki_cmd', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ msg: for_wiki, user, name: name1 }),
+        body: JSON.stringify({ msg: for_wiki, user, username: user, name: name1 }),
       });
       const data = await response.json();
       if (response.ok && data.reply) {
         addMessage({
-          type: 'worldchat',
+          type: 'msg',
           username: 'Hina',
-          reply: data.reply,
+          message: data.reply,
           timestamp: new Date().toISOString()
         }, false);
       } else {
@@ -519,57 +524,12 @@ async function work() {
     return;
   }
 
-  // Handle model-specific prompts
   if (msg_box.startsWith('/')) {
-    const modelMatch = msg_box.match(/^\/([^\/]+)\s*(.*)$/);
-    if (modelMatch) {
-      const model = modelMatch[1];
-      const prompt = modelMatch[2].trim();
-      if (prompt && avail_models.includes(model)) {
-        const userMsg = {
-          type: 'msg',
-          username: user,
-          message: msg_box,
-          timestamp: new Date().toISOString()
-        };
-        addMessage(userMsg, true);
-        type.innerText = 'Typing...';
-        input.value = '';
-
-        try {
-          const response = await fetch('/msghome', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ msg: prompt, user, name: name1, model }),
-          });
-          const data = await response.json();
-          if (response.ok && data.reply) {
-            addMessage({
-              type: 'msg',
-              username: 'Hina',
-              message: data.reply,
-              timestamp: new Date().toISOString()
-            }, false);
-          } else {
-            console.error('AI model error:', { status: response.status, data });
-            alert(`AI Error: ${data.error || 'Invalid response from AI.'}`);
-          }
-        } catch (err) {
-          console.error('AI model fetch error:', err.message);
-          alert('Failed to get AI response. Please try again.');
-        } finally {
-          type.innerText = '';
-        }
-        return;
-      } else if (prompt) {
-        alert(`Invalid model: ${model}. Use /m to see available models.`);
-        input.value = '';
-        return;
-      }
-    }
+    alert('Model-specific prompts are not supported in this version. Use /m to see details.');
+    input.value = '';
+    return;
   }
 
-  // Handle regular AI messages
   const userMsg = {
     type: 'msg',
     username: user,
@@ -584,16 +544,16 @@ async function work() {
     const response = await fetch('/msghome', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ msg: msg_box, user, name: name1, model: 'meta-llama/llama-4-scout-17b-16e-instruct' }),
+      body: JSON.stringify({ msg: msg_box, user, username: user, name: name1 }),
     });
     const data = await response.json();
     if (response.ok && data.reply) {
-      addMessage({
+     /* addMessage({
         type: 'msg',
         username: 'Hina',
         message: data.reply,
         timestamp: new Date().toISOString()
-      }, false);
+      }, false);*/
     } else {
       console.error('AI error:', { status: response.status, data });
       alert(`AI Error: ${data.error || 'Failed to get AI response.'}`);

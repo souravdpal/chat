@@ -18,12 +18,17 @@
     "crypto": "^1.0.1",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
+    "express-rate-limit": "^7.5.0",
+    "express-validator": "^7.2.1",
     "form-data": "^4.0.2",
     "fs": "^0.0.1-security",
     "mongoose": "^8.14.3",
     "nodemon": "^3.1.10",
     "path": "^0.12.7",
-    "socket.io": "^4.8.1"
+    "proper-lockfile": "^4.1.2",
+    "socket.io": "^4.8.1",
+    "socket.io-redis": "^6.1.1",
+    "winston": "^3.17.0"
   },
   "type": "commonjs",
   "description": ""
