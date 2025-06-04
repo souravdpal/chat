@@ -3,8 +3,6 @@ services:
     name: chat-server
     env: node
     rootDir: server
-    buildCommand: |
-      pip install -r ../requirements.txt || echo "No Python requirements"
-      npm install
-    startCommand: node server.js
+    buildCommand: npm install
+    startCommand: npm start
     staticPublishPath: ../public
