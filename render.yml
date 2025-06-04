@@ -3,7 +3,7 @@ services:
     name: chat-backup-app
     env: node
     plan: free
-    rootDir: server  # This is where Render should look for server code (relative to repo root)
+    rootDir: server
 
     buildCommand: |
       npm install
@@ -15,4 +15,3 @@ services:
       - key: PYTHON_VERSION
         value: 3.10
 
-  
