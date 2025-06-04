@@ -2,7 +2,7 @@ services:
   - type: web
     name: chat-server
     env: node
-    rootDir: server
-    buildCommand: npm install
-    startCommand: npm start
-    staticPublishPath: ../public
+    buildCommand: cd chat/server && npm install
+    startCommand: cd chat/server && npm start
+    rootDirectory: chat/server
+    autoDeploy: true
