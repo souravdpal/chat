@@ -1,17 +1,10 @@
 services:
   - type: web
-    name: chat-backup-app
+    name: chat-server
     env: node
-    plan: free
     rootDir: server
-
     buildCommand: |
+      pip install -r ../requirements.txt || echo "No Python requirements"
       npm install
-      pip install -r requirements.txt
-
     startCommand: node server.js
-
-    buildEnvVars:
-      - key: PYTHON_VERSION
-        value: 3.10
-
+    staticPublishPath: ../public
