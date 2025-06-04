@@ -1,15 +1,17 @@
-// call.js
-const userName = localStorage.getItem("user");
+const userName = localStorage.getItem('user')?.toLowerCase();
 if (!userName) {
   console.warn('No user found in localStorage');
   window.location.href = 'login.html';
 }
-
-// Initialize Socket.IO
-const socket = io('https://46fc-49-36-191-72.ngrok-free.app', {
-  transports: ['websocket', 'polling'],
-  reconnectionAttempts: 5,
-  reconnectionDelay: 1000
+alert('sorry but calling feature not ready yet!')
+// Initialize Socket.IO with the correct ngrok URL
+const socket = io(' https://b3ca-49-36-191-72.ngrok-free.app', { // Update to the latest ngrok URL
+  transports: ['websocket', 'polling'], // Try WebSocket first, fallback to polling
+  reconnectionAttempts: 10,
+  reconnectionDelay: 1000,
+  extraHeaders: {
+    'ngrok-skip-browser-warning': 'true',
+  },
 });
 
 // DOM elements
@@ -27,10 +29,11 @@ let remoteStream;
 let isMuted = false;
 let callActive = false;
 let iceTimeout;
+let isNegotiating = false; // Flag to track negotiation state
 
 // Parse URL parameters
 const urlParams = new URLSearchParams(window.location.search);
-const toUser = urlParams.get('to');
+const toUser = urlParams.get('to')?.toLowerCase();
 const isCallee = urlParams.get('opcode') === 'true';
 
 if (!toUser) {
@@ -43,19 +46,19 @@ if (!toUser) {
 function initSocket() {
   socket.on('connect', () => {
     console.log('✅ Socket connected:', socket.id);
-    socket.emit('auth', { user: userName.toLowerCase() }); // Normalize username
+    socket.emit('auth', { user: userName });
     setupSocketEvents();
     if (!isCallee) initiateCall();
   });
 
   socket.on('connect_error', (err) => {
-    console.error('Socket connection error:', err.message);
-    alert('Failed to connect to server. Check network or server status.');
+    console.error('Socket connection error:', err.message, err.stack);
+    alert('Failed to connect to server. Check network, server status, or ngrok tunnel.');
   });
 
   socket.on('reconnect', (attempt) => {
     console.log(`✅ Reconnected after ${attempt} attempts`);
-    socket.emit('auth', { user: userName.toLowerCase() });
+    socket.emit('auth', { user: userName });
     if (!isCallee) initiateCall();
   });
 
@@ -69,7 +72,7 @@ function initSocket() {
 // Set up socket event listeners
 function setupSocketEvents() {
   socket.on('offer', async ({ from, to, offer }) => {
-    if (to.toLowerCase() !== userName.toLowerCase()) return;
+    if (to.toLowerCase() !== userName) return;
     console.log(`Received offer from ${from}, SDP:`, offer.sdp);
     try {
       peerConnection = createPeerConnection();
@@ -78,7 +81,10 @@ function setupSocketEvents() {
       localAudio.srcObject = localStream;
       localAudio.muted = true;
       localAudio.volume = 1.0;
-      await peerConnection.addLocalTracks();
+      localStream.getAudioTracks().forEach((track) => {
+        peerConnection.addTrack(track, localStream);
+        console.log('Added local track:', track, 'Enabled:', track.enabled);
+      });
       const answer = await peerConnection.createAnswer();
       await peerConnection.setLocalDescription(answer);
       socket.emit('answer', { from: userName, to: from, answer });
@@ -94,7 +100,7 @@ function setupSocketEvents() {
   });
 
   socket.on('answer', async ({ from, to, answer }) => {
-    if (to.toLowerCase() !== userName.toLowerCase()) return;
+    if (to.toLowerCase() !== userName) return;
     console.log(`Received answer from ${from}, SDP:`, answer.sdp);
     try {
       await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
@@ -104,7 +110,7 @@ function setupSocketEvents() {
   });
 
   socket.on('iceCandidate', async ({ from, to, candidate }) => {
-    if (to.toLowerCase() !== userName.toLowerCase()) return;
+    if (to.toLowerCase() !== userName) return;
     console.log(`Received ICE candidate from ${from}:`, candidate);
     try {
       await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
@@ -114,7 +120,7 @@ function setupSocketEvents() {
   });
 
   socket.on('endCall', ({ from, to }) => {
-    if (to.toLowerCase() !== userName.toLowerCase()) return;
+    if (to.toLowerCase() !== userName) return;
     console.log(`Call ended by ${from}`);
     endCall();
   });
@@ -129,21 +135,20 @@ function createPeerConnection() {
       {
         urls: 'turn:openrelay.metered.ca:80',
         username: 'openrelayproject',
-        credential: 'openrelayproject'
-      }
+        credential: 'openrelayproject',
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
     ],
   });
-
-  let tracksAdded = false;
-  let renegotiationPending = false;
-
-  const transceiver = pc.addTransceiver('audio', { direction: 'sendrecv' });
-  console.log('Initialized audio transceiver:', transceiver);
 
   pc.onicecandidate = ({ candidate }) => {
     if (candidate) {
       console.log('Sending ICE candidate:', candidate);
-      socket.emit('iceCandidate', { from: userName, to: toUser, ice: candidate });
+      socket.emit('iceCandidate', { from: userName, to: toUser, candidate });
     }
   };
 
@@ -169,11 +174,7 @@ function createPeerConnection() {
 
   pc.oniceconnectionstatechange = () => {
     console.log('ICE Connection State:', pc.iceConnectionState);
-    console.log('ICE Gathering State:', pc.iceGatheringState);
     console.log('Signaling State:', pc.signalingState);
-    console.log('Transceivers:', pc.getTransceivers());
-    console.log('Senders:', pc.getSenders());
-    console.log('Receivers:', pc.getReceivers());
     if (pc.iceConnectionState === 'failed') {
       console.warn('ICE connection failed, restarting...');
       pc.restartIce();
@@ -182,52 +183,32 @@ function createPeerConnection() {
       endCall();
     } else if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
       console.log('ICE connection established successfully');
-      pc.getSenders().forEach((sender) => console.log('Sender track:', sender.track, 'Enabled:', sender.track?.enabled));
-      pc.getReceivers().forEach((receiver) => console.log('Receiver track:', receiver.track, 'Enabled:', receiver.track?.enabled));
       clearTimeout(iceTimeout);
     }
   };
 
   pc.onnegotiationneeded = async () => {
-    if (renegotiationPending) {
-      console.log('Renegotiation already in progress, skipping...');
-      return;
-    }
     try {
-      renegotiationPending = true;
-      if (pc.signalingState === 'stable' && tracksAdded) {
-        const offer = await pc.createOffer();
-        console.log('Renegotiation Offer SDP:', offer.sdp);
-        await pc.setLocalDescription(offer);
-        socket.emit('offer', { from: userName, to: toUser, offer });
-        console.log(`Sending offer to ${toUser} on renegotiation`);
-      } else {
-        console.log('Skipping offer creation; signaling state:', pc.signalingState, 'tracksAdded:', tracksAdded);
+      if (isNegotiating || pc.signalingState !== 'stable') {
+        console.log('Negotiation already in progress or signaling state not stable, skipping...');
+        return; // Skip if already negotiating or not in a stable state
       }
+      isNegotiating = true;
+      const offer = await pc.createOffer();
+      console.log('Negotiation Offer SDP:', offer.sdp);
+      await pc.setLocalDescription(offer);
+      socket.emit('offer', { from: userName, to: toUser, offer });
+      console.log(`Sending offer to ${toUser} on renegotiation`);
     } catch (err) {
       console.error('Negotiation error:', err.name, err.message);
     } finally {
-      renegotiationPending = false;
+      isNegotiating = false;
     }
   };
 
-  pc.addLocalTracks = async () => {
-    if (!tracksAdded && localStream) {
-      localStream.getTracks().forEach((track) => {
-        console.log('Adding local track:', track, 'Enabled:', track.enabled);
-        pc.getTransceivers().forEach((transceiver) => {
-          if (transceiver.sender.track === null && track.kind === 'audio') {
-            transceiver.sender.replaceTrack(track);
-          }
-        });
-      });
-      tracksAdded = true;
-      console.log('Local tracks added to peer connection');
-      localStream.getTracks().forEach((track) => {
-        track.enabled = true;
-        console.log('Local track enabled:', track.enabled);
-      });
-    }
+  pc.onsignalingstatechange = () => {
+    console.log('Signaling State Changed:', pc.signalingState);
+    isNegotiating = false; // Reset negotiating flag when signaling state stabilizes
   };
 
   return pc;
@@ -237,7 +218,7 @@ function createPeerConnection() {
 async function initiateCall() {
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
-    const audioInput = devices.find(device => device.kind === 'audioinput');
+    const audioInput = devices.find((device) => device.kind === 'audioinput');
     if (!audioInput) {
       throw new Error('No audio input device found');
     }
@@ -248,14 +229,13 @@ async function initiateCall() {
     localAudio.srcObject = localStream;
     localAudio.muted = true;
     localAudio.volume = 1.0;
-    localAudio.play().catch((err) => console.error('Local audio play error:', err.name, err.message));
-    await peerConnection.addLocalTracks();
-    console.log('Creating offer...');
+    localStream.getAudioTracks().forEach((track) => {
+      peerConnection.addTrack(track, localStream);
+      console.log('Added local track:', track, 'Enabled:', track.enabled);
+    });
     const offer = await peerConnection.createOffer();
     console.log('Initial Offer SDP:', offer.sdp);
-    console.log('Setting local description...');
     await peerConnection.setLocalDescription(offer);
-    console.log('Emitting offer...');
     socket.emit('offer', { from: userName, to: toUser, offer });
     console.log(`Sending offer to ${toUser}`);
     callActive = true;
@@ -268,7 +248,7 @@ async function initiateCall() {
         alert('Failed to establish call connection. Check network or try again.');
         endCall();
       }
-    }, 15000);
+    }, 30000);
   } catch (err) {
     console.error('Error initiating call:', err.name, err.message);
     alert(`Failed to start call: ${err.message}. Check microphone permissions and audio device.`);
@@ -295,11 +275,12 @@ function endCall() {
   }
   callActive = false;
   isMuted = false;
+  isNegotiating = false;
   updateUI();
   socket.emit('endCall', { from: userName, to: toUser });
   console.log('Call ended');
   setTimeout(() => {
-    window.location.href = 'f.html';
+    window.location.href = 'friends.html';
   }, 500);
 }
 

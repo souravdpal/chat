@@ -95,7 +95,7 @@ function sendPrivateMessage() {
     timestamp: new Date().toISOString()
   };
   socket.emit('privateMessage', message);
-  addMessage(message, true);
+  //addMessage(message, true);
   messageInput.value = '';
 }
 

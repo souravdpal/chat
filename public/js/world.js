@@ -1,43 +1,106 @@
-const socket = window.socket || io('/'); // Use shared socket or create new
+// Initialize socket or use shared socket
+const socket = window.socket || io('/'); // Requires <script src="/socket.io/socket.io.js"></script>
 const user = localStorage.getItem('user');
 const name1 = localStorage.getItem('name');
-const ins = document.getElementById('here');
-const form = document.getElementById('btn');
-const input = document.getElementById('take');
-const joiner = document.getElementById('join');
-
-// Redirect if not logged in
-if (!user || !name1) {
-  alert('Please log in to continue.');
-  window.location.href = 'login.html';
-}
+const ins = document.getElementById('here'); // Chat container
+const form = document.getElementById('btn'); // Send button
+const input = document.getElementById('take'); // Message input
+const joiner = document.getElementById('join'); // Join message container
 
 // Validate DOM elements
 if (!ins || !form || !input || !joiner) {
   console.error('Missing DOM elements:', { ins, form, input, joiner });
   alert('Page setup error. Please check the HTML structure.');
+  throw new Error('Missing required DOM elements');
 }
 
-// Show join message
-joiner.innerHTML += `${name1} joined the world chat!`;
+// Add verified users (case-insensitive)
+const verifiedUsers = ['~hina', '~sourav'];
 
-// Convert to 12-hour format without seconds
+// Replace {user} or {users} with name1, and {{//any_word}} with a link to home.html
+function filterPlaceholders(text) {
+  if (!text || typeof text !== 'string') return '';
+  const username = name1 || 'Unknown';
+  let result = text.replace(/{users?}/gi, username);
+  result = result.replace(/\{\{\/\/([^\}]+)\}\}/g, (match, p1) => {
+    const sanitizedText = p1.replace(/[<>&"']/g, (char) => ({
+      '<': '<',
+      '>': '>',
+      '&': '&',
+      '"': '"',
+      
+    })[char]);
+    return `<a href="home.html" target="_blank">${sanitizedText}</a>`;
+  });
+   result = result.replace(/\/\/(.*?)\/\//g, (match, p1) => {
+    const sanitizedText = p1.replace(/[<>&"']/g, (char) => ({
+      '<': '&lt;',
+      '>': '&gt;',
+      '&': '&amp;',
+      '"': '&quot;',
+      "'": '&#39;'
+    })[char]);
+    return `<a href="f.html" target="_blank">${sanitizedText}</a>`;
+  });
+  return result;
+}
+
+// Render username with verified badge if applicable
+function renderUsername(username) {
+  if (!username) {
+    console.error('Username is undefined or null:', username);
+    return `<span><strong>Unknown</strong></span>`;
+  }
+  const normalizedUsername = username.trim().toLowerCase();
+  const isVerified = verifiedUsers.includes(normalizedUsername);
+  const unverifiedUsers = []; // Add usernames to exclude from badge
+  const showBadge = isVerified && !unverifiedUsers.includes(normalizedUsername);
+  const imagePath = 'h.png'; // Verified badge image
+  console.log(`[renderUsername] Username: "${username}", Normalized: "${normalizedUsername}", Is Verified: ${isVerified}, Show Badge: ${showBadge}`);
+  return showBadge
+    ? `<span class="verified-user">${username}<img src="${imagePath}" alt="Verified" class="verified-emoji" style="width:20px;height:20px;vertical-align:middle;margin-bottom:2px;"></span>`
+    : `<span><strong>${username}</strong></span>`;
+}
+
+// Display a message in the chat UI
+function showMessage(data, type) {
+  if (!data.sender) {
+    console.error('Missing sender in message data:', data);
+    return;
+  }
+  const text = filterPlaceholders(data.text || '');
+  const nameHTML = renderUsername(data.sender);
+  const formattedTime = formatTime(new Date(data.timestamp || Date.now()));
+  ins.innerHTML += `
+    <div class="message ${type}">
+      <div>${nameHTML} <small>${formattedTime}</small></div>
+      <div>${text}</div>
+    </div>
+  `;
+  ins.scrollTop = ins.scrollHeight;
+}
+
+// Convert timestamp to 12-hour format
 function formatTime(date) {
   let hours = date.getHours();
   let minutes = date.getMinutes();
-  let ampm = hours >= 12 ? 'PM' : 'AM';
+  const ampm = hours >= 12 ? 'PM' : 'AM';
   hours = hours % 12 || 12;
-  minutes = minutes < 10 ? '0' + minutes : minutes;
+  minutes = minutes < 10 ? `0${minutes}` : minutes;
   return `${hours}:${minutes} ${ampm}`;
 }
 
-// Initialize socket
+// Track last message timestamp to avoid duplicates
+let lastMessageTimestamp = null;
+
+// Initialize socket and set up event listeners
 function initSocket() {
   socket.on('connect', () => {
     console.log('✅ Socket connected:', socket.id);
     socket.emit('auth', { user });
     fetchFriendRequests();
     fetchChatHistory();
+    startPolling(); // Start polling as fallback
   });
 
   socket.on('reconnect', (attempt) => {
@@ -45,6 +108,7 @@ function initSocket() {
     socket.emit('auth', { user });
     fetchFriendRequests();
     fetchChatHistory();
+    startPolling();
   });
 
   socket.on('error', ({ message }) => {
@@ -61,13 +125,9 @@ function initSocket() {
     alert(`${from} has accepted your friend request!`);
   });
 
-  socket.on('world message', ({ username, message, timestamp }) => {
-    console.log('Received world message:', { username, message, timestamp });
-    showMessage({
-      sender: username,
-      text: message,
-      time: formatTime(new Date(timestamp))
-    }, username === user ? 'user' : 'other');
+  socket.on('new world message', () => {
+    console.log('New world message received, fetching chat history...');
+    fetchChatHistory();
   });
 
   socket.on('incomingRequest', ({ from, mode }) => {
@@ -85,47 +145,38 @@ function initSocket() {
   });
 }
 
-// Fetch chat history
+// Fetch world chat history
 async function fetchChatHistory() {
   try {
-    const url = `/chat_history?type=worldchat&user1=${encodeURIComponent(user)}`;
-    const response = await fetch(url, {
+    const response = await fetch('/chat_history?type=worldchat', {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
     const data = await response.json();
     if (response.ok && Array.isArray(data.messages)) {
-      ins.innerHTML = `<div class='message other'>${name1} joined the world chat!</div>`;
-      data.messages.forEach(msg => {
-        if (!msg.reply) { // Exclude wiki responses
-          showMessage({
+      const newMessages = lastMessageTimestamp
+        ? data.messages.filter((msg) => new Date(msg.timestamp) > new Date(lastMessageTimestamp))
+        : data.messages;
+      if (newMessages.length > 0) {
+        lastMessageTimestamp = newMessages[newMessages.length - 1].timestamp;
+      }
+      newMessages.forEach((msg) => {
+        console.log('[fetchChatHistory] Message:', msg);
+        showMessage(
+          {
             sender: msg.username,
             text: msg.message,
-            time: formatTime(new Date(msg.timestamp))
-          }, msg.username === user ? 'user' : 'other');
-        }
+            timestamp: msg.timestamp,
+          },
+          msg.username === user ? 'user' : 'other'
+        );
       });
     } else {
-      console.error('Invalid worldchat history response:', data);
+      console.error('Invalid world chat history response:', data);
     }
   } catch (err) {
-    console.error('Error fetching worldchat history:', err);
+    console.error('Error fetching world chat history:', err);
   }
-}
-
-// Show message in UI
-function showMessage(data, type) {
-  if (!data.sender) {
-    console.log('Missing sender in message data:', data);
-    return;
-  }
-  ins.innerHTML += `
-    <div class="message ${type}">
-      <strong>${data.sender}:</strong> ${data.text}
-      <br><small>${data.time}</small>
-    </div>
-  `;
-  ins.scrollTop = ins.scrollHeight;
 }
 
 // Add friend request to UI
@@ -137,7 +188,7 @@ function addFriendRequest(fr1) {
   const rejectId = `reject-${fr1.replace(/\s+/g, '_')}`;
 
   ins.innerHTML += `
-    <div class="cleaner" id="${requestId}" style="margin-bottom: 5px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; background-color:rgb(250, 250, 250);">
+    <div class="cleaner" id="${requestId}" style="margin-bottom: 5px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; background-color: rgb(250, 250, 250);">
       <div class="friend-request" style="display: flex; align-items: center; justify-content: space-between; color: #333;">
         <span><strong>${fr1}</strong> sent you a friend request.</span>
         <div>
@@ -152,41 +203,46 @@ function addFriendRequest(fr1) {
     const acceptBtn = document.getElementById(acceptId);
     const rejectBtn = document.getElementById(rejectId);
     if (acceptBtn) {
-      acceptBtn.addEventListener('click', () => {
-        fetch('/fr_response', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'accept', from: fr1, to: user }),
-        })
-          .then((res) => res.json())
-          .then((data) => {
+      acceptBtn.addEventListener('click', async () => {
+        try {
+          const res = await fetch('/fr_response', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'accept', from: fr1, to: user }),
+          });
+          const data = await res.json();
+          if (res.ok) {
             alert(`Accepted friend request from ${fr1}.`);
             document.getElementById(requestId)?.remove();
             socket.emit('friendRequestAccepted', { from: user, to: fr1 });
-          })
-          .catch((err) => {
-            console.error('Error accepting friend request:', err);
-            alert('Failed to accept friend request.');
-          });
+          } else {
+            throw new Error(data.message || 'Failed to accept friend request');
+          }
+        } catch (err) {
+          console.error('Error accepting friend request:', err);
+          alert('Failed to accept friend request.');
+        }
       });
     }
-
     if (rejectBtn) {
-      rejectBtn.addEventListener('click', () => {
-        fetch('/fr_response', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'reject', from: fr1, to: user }),
-        })
-          .then((res) => res.json())
-          .then((data) => {
+      rejectBtn.addEventListener('click', async () => {
+        try {
+          const res = await fetch('/fr_response', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'reject', from: fr1, to: user }),
+          });
+          const data = await res.json();
+          if (res.ok) {
             alert(`Rejected friend request from ${fr1}.`);
             document.getElementById(requestId)?.remove();
-          })
-          .catch((err) => {
-            console.error('Error rejecting friend request:', err);
-            alert('Failed to reject friend request.');
-          });
+          } else {
+            throw new Error(data.message || 'Failed to reject friend request');
+          }
+        } catch (err) {
+          console.error('Error rejecting friend request:', err);
+          alert('Failed to reject friend request.');
+        }
       });
     }
   }, 0);
@@ -210,31 +266,43 @@ async function fetchFriendRequests() {
   }
 }
 
+// Polling for new messages (fallback)
+let pollingActive = false;
+function startPolling() {
+  if (pollingActive) return;
+  pollingActive = true;
+  const pollInterval = setInterval(async () => {
+    try {
+      await fetchChatHistory();
+    } catch (err) {
+      console.error('Polling error:', err);
+    }
+  }, 30000); // Poll every 30 seconds
+  socket.on('disconnect', () => {
+    console.log('Socket disconnected, stopping polling');
+    clearInterval(pollInterval);
+    pollingActive = false;
+  });
+}
+
+// Show join message
+joiner.innerHTML += `${filterPlaceholders('{user} joined the world chat!')}`;
+
 // Handle sending messages
 if (form) {
   form.addEventListener('click', async (e) => {
     e.preventDefault();
-    console.log('Send button clicked');
     const text = input.value.trim();
     if (!text) {
       console.log('Empty message, ignoring');
       return;
     }
-
     const messageData = {
       username: user,
       message: text,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
     console.log('Sending world message:', messageData);
-
-    // Optimistic UI update
-    showMessage({
-      sender: user,
-      text: text,
-      time: formatTime(new Date())
-    }, 'user');
-
     try {
       socket.emit('world message', messageData);
       input.value = '';
@@ -243,8 +311,6 @@ if (form) {
       alert('Failed to send message.');
     }
   });
-} else {
-  console.error('Send button (#btn) not found');
 }
 
 // Handle Enter key
@@ -252,10 +318,24 @@ if (input) {
   input.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      console.log('Enter key pressed');
       form.click();
     }
   });
 }
 
+// Initialize socket
 initSocket();
+
+// Test the provided message
+const testMessage = {
+  username: '~HINA',
+  message: 'Hi i am hina and {users} welcome here! lets all {{//talk}} and enjoy!',
+  timestamp: '00'
+};
+const t1 = {
+  username: '~sourav',
+  message: 'hey guys welcome to the world chat where anyone can connect without any problem talk anyone and make //friend//!',
+  timestamp: '00'
+};
+showMessage({ sender: testMessage.username, text: testMessage.message, timestamp: testMessage.timestamp }, 'other');
+showMessage({ sender: t1.username, text: t1.message, timestamp: t1.timestamp }, 'other');

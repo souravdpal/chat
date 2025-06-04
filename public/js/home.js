@@ -11,6 +11,58 @@ const type = document.getElementById('type');
 const input = document.getElementById('take');
 const joiner = document.getElementById('join');
 
+
+
+
+    const themes = ['light', 'dark', 'blue'];
+    let currentThemeIndex = 0;
+
+    // Load theme from localStorage if available
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme && themes.includes(savedTheme)) {
+      currentThemeIndex = themes.indexOf(savedTheme);
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    } else {
+      currentThemeIndex = themes.indexOf('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+    
+    function toggleTheme() {
+      currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+      const newTheme = themes[currentThemeIndex];
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+    }
+
+    // Navbar animations
+    document.addEventListener('DOMContentLoaded', () => {
+      const logo = document.querySelector('.logo');
+      const navLinks = document.querySelectorAll('.nav-link');
+
+      // Logo hover effect
+      logo.addEventListener('mouseenter', () => {
+        logo.style.transform = 'scale(1.1)';
+      });
+      logo.addEventListener('mouseleave', () => {
+        logo.style.transform = 'scale(1)';
+      });
+
+      // Nav links hover effect
+      navLinks.forEach(link => {
+        link.addEventListener('mouseenter', () => {
+          link.style.transform = 'scale(1.05)';
+        });
+        link.addEventListener('mouseleave', () => {
+          link.style.transform = 'scale(1)';
+        });
+      });
+    });
+
+
+
+
+
+
 // Available models (placeholder messages)
 const avail_models = [
   "server: **note: models are not available in this version, but you can use them in the future**",
@@ -75,6 +127,7 @@ function addMessage(msg, isUser) {
     message.innerHTML = `
       Ok, *${name1}*, here are the commands:
       <ul class="command-list">
+         <li><span class="command">/custom</span> = add your custom prompts and make hina what you like her too!</li>
         <li><span class="command">/r</span> = Clear chat</li>
         <li><span class="command">/wiki</span> = Wiki search</li>
         <li><span class="command">/save</span> = Save chat</li>
@@ -409,6 +462,12 @@ async function work() {
   const msg_box = input.value.trim();
   if (!msg_box) return;
 
+  if (msg_box === '/custom') {
+    ins.innerHTML += `<div class="message other"><div class="command-example">Hey ${name1}, adding custom prompts is coming soon!</div></div>`;
+    input.value = '';
+    return;
+  }
+
   if (msg_box === '/n') {
     alert(`Logged in as: ${name1} (${user})`);
     input.value = '';
@@ -428,7 +487,8 @@ async function work() {
     loadedMessages.clear();
     isHistoryLoaded = false;
     input.value = '';
-    fetchChatHistory();
+    joiner.innerHTML = `${name1} joined, welcome to chat!`;
+    ins.innerHTML += `<div class="message other"><div class="command-example">Hey ${name1}, how are you? Enter "/" to see commands!</div></div>`;
     return;
   } else if (msg_box === '/wiki') {
     const for_wiki = prompt('What do you want to ask Wiki?')?.trim();
@@ -451,12 +511,12 @@ async function work() {
       });
       const data = await response.json();
       if (response.ok && data.reply) {
-        addMessage({
+        /*addMessage({
           type: 'msg',
           username: 'Hina',
           message: data.reply,
           timestamp: new Date().toISOString()
-        }, false);
+        }, false);*/
       } else {
         console.error('Wiki error:', data);
         alert(`Wiki Error: ${data.error || 'Failed to get wiki response.'}`);
@@ -504,6 +564,11 @@ async function work() {
   } else if (msg_box === '/f') {
     const friend = prompt('Enter friend username to chat with:')?.trim();
     if (!friend) return;
+    if (friend === name1) {
+      alert("Oops, you can't invite yourself!");
+      input.value = '';
+      return;
+    }
     try {
       const response = await fetch(`/initiate?user=${encodeURIComponent(user)}&to=${encodeURIComponent(friend)}&mode=text`, {
         method: 'GET',
@@ -541,26 +606,42 @@ async function work() {
   input.value = '';
 
   try {
-    const response = await fetch('/msghome', {
-      method: 'POST',
+    const response = await fetch(`/msghome?user=${encodeURIComponent(user)}&name=${encodeURIComponent(name1)}&msg=${encodeURIComponent(msg_box)}`, {
+      method: 'GET',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ msg: msg_box, user, username: user, name: name1 }),
     });
     const data = await response.json();
     if (response.ok && data.reply) {
-     /* addMessage({
+      addMessage({
         type: 'msg',
         username: 'Hina',
         message: data.reply,
         timestamp: new Date().toISOString()
-      }, false);*/
+      }, false);
     } else {
       console.error('AI error:', { status: response.status, data });
       alert(`AI Error: ${data.error || 'Failed to get AI response.'}`);
     }
+    const response2 = await fetch('/msghome', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ msg: msg_box, user, username: user, name: name1 }),
+    });
+    const data2 = await response2.json();
+    if (response2.ok && data2.reply) {
+     /* addMessage({
+        type: 'msg',
+        username: 'Hina',
+        message: data2.reply,
+        timestamp: new Date().toISOString()
+      }, false);*/
+    } else {
+      console.error('AI error:', { status: response2.status, data: data2 });
+      alert(`AI Error: ${data2.error || 'Failed to get AI response.'}`);
+    }
   } catch (err) {
     console.error('AI fetch error:', err.message);
-    alert('Failed to get AI response. Please check your connection.');
+    //alert('Failed to get AI response. Please check your connection.');
   } finally {
     type.innerText = '';
   }

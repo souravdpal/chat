@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: chat-backup-app
+    env: node
+    plan: free
+    buildCommand: |
+      npm install --prefix server
+      pip install -r server/python/requirements.txt
+        pip install -r requirements.txt
+
+    startCommand: node server/server.js
+    envVars:
+      - key: MONGODB_URI
+        value: YOUR_MONGODB_URI_HERE
+    buildEnvVars:
+      - key: PYTHON_VERSION
+        value: 3.10

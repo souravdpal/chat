@@ -114,51 +114,7 @@
       <button id="btn" onclick="work()">Send</button>
     </div>
   </div>
-  <script>
-    const themes = ['light', 'dark', 'blue'];
-    let currentThemeIndex = 0;
-
-    // Load theme from localStorage if available
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme && themes.includes(savedTheme)) {
-      currentThemeIndex = themes.indexOf(savedTheme);
-      document.documentElement.setAttribute('data-theme', savedTheme);
-    } else {
-      currentThemeIndex = themes.indexOf('dark');
-      document.documentElement.setAttribute('data-theme', 'dark');
-    }
-    
-    function toggleTheme() {
-      currentThemeIndex = (currentThemeIndex + 1) % themes.length;
-      const newTheme = themes[currentThemeIndex];
-      document.documentElement.setAttribute('data-theme', newTheme);
-      localStorage.setItem('theme', newTheme);
-    }
-
-    // Navbar animations
-    document.addEventListener('DOMContentLoaded', () => {
-      const logo = document.querySelector('.logo');
-      const navLinks = document.querySelectorAll('.nav-link');
-
-      // Logo hover effect
-      logo.addEventListener('mouseenter', () => {
-        logo.style.transform = 'scale(1.1)';
-      });
-      logo.addEventListener('mouseleave', () => {
-        logo.style.transform = 'scale(1)';
-      });
-
-      // Nav links hover effect
-      navLinks.forEach(link => {
-        link.addEventListener('mouseenter', () => {
-          link.style.transform = 'scale(1.05)';
-        });
-        link.addEventListener('mouseleave', () => {
-          link.style.transform = 'scale(1)';
-        });
-      });
-    });
-  </script>
+  
 
   <script defer src="js/home.js"></script>
   <script src="/socket.io/socket.io.js"></script>

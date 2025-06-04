@@ -19,7 +19,9 @@ const server = http.createServer(app);
 const port = process.env.PORT || 3000;
 const saltRounds = parseInt(process.env.SALT_ROUNDS) || 12;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data', 'json');
+const WORLD_CHAT_DIR = path.join(__dirname, '..', 'data', 'worldchat');
 const CHAT_FILE_PREFIX = path.join(DATA_DIR, 'chat_history');
+const WORLD_CHAT_FILE = path.join(WORLD_CHAT_DIR, 'worldchat.json');
 const MAX_MESSAGES_PER_FILE = parseInt(process.env.MAX_MESSAGES_PER_FILE) || 10000;
 let chatFileIndex = 0;
 
@@ -37,37 +39,39 @@ const logger = winston.createLogger({
 });
 
 if (process.env.NODE_ENV !== 'production') {
-  logger.add(new winston.transports.Console({
-    format: winston.format.simple(),
-  }));
+  logger.add(
+    new winston.transports.Console({
+      format: winston.format.simple(),
+    })
+  );
 }
 
-// Helper to get all chat history files
+// Helper to get all chat history files (for AI chats)
 async function getAllChatFiles() {
   try {
     const files = await fs.readdir(DATA_DIR);
     return files
-      .filter(f => f.startsWith('chat_history') && f.endsWith('.json'))
+      .filter((f) => f.startsWith('chat_history') && f.endsWith('.json'))
       .sort((a, b) => {
         const ai = parseInt(a.replace('chat_history', '').replace('.json', '')) || 0;
         const bi = parseInt(b.replace('chat_history', '').replace('.json', '')) || 0;
         return ai - bi;
       })
-      .map(f => path.join(DATA_DIR, f));
+      .map((f) => path.join(DATA_DIR, f));
   } catch (err) {
     logger.error('Error listing chat files:', err);
     return [path.join(DATA_DIR, 'chat_history.json')];
   }
 }
 
-// Helper to get current chat file path
+// Helper to get current chat file path (for AI chats)
 function getCurrentChatFile() {
   return chatFileIndex === 0
     ? `${CHAT_FILE_PREFIX}.json`
     : `${CHAT_FILE_PREFIX}${chatFileIndex}.json`;
 }
 
-// Initialize chat history file
+// Initialize chat history file (for AI chats)
 async function initChatFile() {
   try {
     await fs.mkdir(DATA_DIR, { recursive: true });
@@ -88,9 +92,25 @@ async function initChatFile() {
   }
 }
 
-// Save AI message to JSON file
+// Initialize world chat file
+async function initWorldChatFile() {
+  try {
+    await fs.mkdir(WORLD_CHAT_DIR, { recursive: true });
+    try {
+      await fs.access(WORLD_CHAT_FILE);
+    } catch {
+      await fs.writeFile(WORLD_CHAT_FILE, JSON.stringify({ messages: [] }, null, 2));
+      logger.info(`Created new world chat file at ${WORLD_CHAT_FILE}`);
+    }
+  } catch (err) {
+    logger.error('Error initializing world chat file:', err);
+    throw err;
+  }
+}
+
+// Save AI message to JSON file (for AI chats)
 async function saveMessage(type, message) {
-  if (type !== 'msg') return; // Only store AI chats
+  if (type !== 'msg') return;
   const filePath = getCurrentChatFile();
   try {
     const release = await lockfile.lock(filePath, { retries: 5 });
@@ -120,9 +140,31 @@ async function saveMessage(type, message) {
   }
 }
 
+// Save world chat message to JSON file
+async function saveWorldChatMessage(message) {
+  try {
+    const release = await lockfile.lock(WORLD_CHAT_FILE, { retries: 5 });
+    try {
+      let data;
+      try {
+        data = JSON.parse(await fs.readFile(WORLD_CHAT_FILE));
+      } catch {
+        data = { messages: [] };
+      }
+      data.messages = data.messages || [];
+      data.messages.push(message);
+      await fs.writeFile(WORLD_CHAT_FILE, JSON.stringify(data, null, 2));
+    } finally {
+      await release();
+    }
+  } catch (err) {
+    logger.error('Error saving world chat message:', err);
+  }
+}
+
 // Get AI chat history
 async function getChatHistory(type, user1) {
-  if (type !== 'msg') return []; // Only retrieve AI chats
+  if (type !== 'msg') return [];
   try {
     const files = await getAllChatFiles();
     let messages = [];
@@ -144,29 +186,44 @@ async function getChatHistory(type, user1) {
   }
 }
 
+// Get world chat history
+async function getWorldChatHistory() {
+  try {
+    const data = JSON.parse(await fs.readFile(WORLD_CHAT_FILE));
+    if (Array.isArray(data.messages)) {
+      return data.messages.slice(-1000); // Limit to last 1000 messages
+    }
+    return [];
+  } catch (err) {
+    logger.error('Error reading world chat history:', err);
+    return [];
+  }
+}
+
 // CORS configuration
 const io = new Server(server, {
   cors: {
-    origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [
-      'http://localhost:3000',
-      'https://chatgpt-voice-assistant.vercel.app',
-    ],
+    origin: process.env.CORS_ORIGINS
+      ? process.env.CORS_ORIGINS.split(',')
+      : ['http://localhost:3000', 'https://chatgpt-voice-assistant.vercel.app'],
     methods: ['GET', 'POST'],
     credentials: true,
   },
 });
 
 // Middleware
-app.use(cors({
-  origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [
-    'http://localhost:3000',
-    'https://chatgpt-voice-assistant.vercel.app',
-  ],
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGINS
+      ? process.env.CORS_ORIGINS.split(',')
+      : ['http://localhost:3000', 'https://chatgpt-voice-assistant.vercel.app'],
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '..', 'public'), { extensions: ['html'] }));
+app.use(express.static(path.join(__dirname, '..', 'assets','images'), { extensions: ['png'] }));
 
 // Rate limiting
 const limiter = rateLimit({
@@ -176,10 +233,10 @@ const limiter = rateLimit({
 app.use('/msghome', limiter);
 app.use('/wiki_cmd', limiter);
 
-// API Key Authentication Middleware
+// API Key Authentication Middleware (not used in /api/hina)
 const apiLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 50, // 50 requests per minute
+  windowMs: 60 * 1000,
+  max: 50,
 });
 
 const authenticateApiKey = async (req, res, next) => {
@@ -199,35 +256,36 @@ const authenticateApiKey = async (req, res, next) => {
     logger.error('Error validating API key:', error);
     res.status(error.statusCode || 500).json({ error: error.message || 'Internal server error' });
   }
-}
+};
 
-// New Public API Endpoint for Hina
-// The API key is a secret value expected in the 'x-api-key' HTTP header for requests to /api/hina.
-// It is compared to the value in process.env.HINA_API_KEY (from your .env file).
-// Example usage:
-//   curl -X POST http://localhost:3000/api/hina -H "x-api-key: YOUR_API_KEY" -d '{"msg":"hello","username":"user"}' -H "Content-Type: application/json"
-app.post('/api/hina', [apiLimiter, authenticateApiKey], [
-  body('msg').notEmpty().withMessage('Message required'),
-  body('username').notEmpty().withMessage('Username required'),
-  body('name').optional().trim().escape(),
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    logger.error('API validation error:', errors.array()[0].msg);
-    return res.status(400).json({ error: errors.array()[0].msg });
+// Public API Endpoint for Hina
+app.post(
+  '/api/hina',
+  [apiLimiter],
+  [
+    body('msg').notEmpty().withMessage('Message required'),
+    body('username').notEmpty().withMessage('Username required'),
+    body('name').optional().trim().escape(),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      logger.error('API validation error:', errors.array()[0].msg);
+      return res.status(400).json({ error: errors.array()[0].msg });
+    }
+    const { msg, username, name } = req.body;
+    try {
+      const { reply } = await runPythonChat({ msg, username, name });
+      logger.info(`API response for "${msg}" by ${username}: ${reply}`);
+      const message = { message: msg, reply, timestamp: new Date().toISOString(), username };
+      await saveMessage('msg', message);
+      res.json({ reply });
+    } catch (err) {
+      logger.error(`API error in /api/hina: ${err.message}`);
+      res.status(500).json({ error: 'Failed to get AI reply' });
+    }
   }
-  const { msg, username, name } = req.body;
-  try {
-    const { reply } = await runPythonChat({ msg, username, name });
-    logger.info(`API response for "${msg}" by ${username}: ${reply}`);
-    const message = { message: msg, reply, timestamp: new Date().toISOString(), username };
-    await saveMessage('msg', message);
-    res.json({ reply });
-  } catch (err) {
-    logger.error(`API error in /api/hina: ${err.message}`);
-    res.status(500).json({ error: 'Failed to get AI reply' });
-  }
-});
+);
 
 // Serve welcome page
 app.get('/', (req, res) => {
@@ -250,7 +308,7 @@ async function connectMongoDB() {
         logger.error('Max MongoDB connection retries reached. Exiting...');
         process.exit(1);
       }
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      await new Promise((resolve) => setTimeout(resolve, 5000));
     }
   }
 }
@@ -271,212 +329,243 @@ const userSchema = new mongoose.Schema(
 const User = mongoose.model('User', userSchema);
 
 // Input validation middleware
-const sanitizeInput = [
-  body('*').trim().escape(),
-];
+const sanitizeInput = [body('*').trim().escape()];
 
 // User Registration
-app.post('/user', sanitizeInput, [
-  body('name').notEmpty().withMessage('Name is required'),
-  body('user').notEmpty().withMessage('Username is required'),
-  body('key').notEmpty().withMessage('Password is required'),
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ error: errors.array()[0].msg });
-  }
-  const { name, user, key } = req.body;
-  try {
-    const existingUser = await User.findOne({ user });
-    if (existingUser) {
-      logger.info(`Registration attempt failed: User ${user} already exists`);
-      return res.status(400).json({ error: 'User already exists!' });
+app.post(
+  '/user',
+  sanitizeInput,
+  [
+    body('name').notEmpty().withMessage('Name is required'),
+    body('user').notEmpty().withMessage('Username is required'),
+    body('key').notEmpty().withMessage('Password is required'),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array()[0].msg });
     }
-    const hashedKey = await bcrypt.hash(key, saltRounds);
-    const newUser = new User({ name, user, key1: hashedKey });
-    await newUser.save();
-    logger.info(`${newUser.name} registered successfully`);
-    res.status(200).json({ message: `${newUser.name} registered successfully! Please login.` });
-  } catch (err) {
-    logger.error('Registration error:', err);
-    res.status(500).json({ error: 'Registration failed due to server error.' });
+    const { name, user, key } = req.body;
+    try {
+      const existingUser = await User.findOne({ user });
+      if (existingUser) {
+        logger.info(`Registration attempt failed: User ${user} already exists`);
+        return res.status(400).json({ error: 'User already exists!' });
+      }
+      const hashedKey = await bcrypt.hash(key, saltRounds);
+      const newUser = new User({ name, user, key1: hashedKey });
+      await newUser.save();
+      logger.info(`${newUser.name} registered successfully`);
+      res.status(200).json({ message: `${newUser.name} registered successfully! Please login.` });
+    } catch (err) {
+      logger.error('Registration error:', err);
+      res.status(500).json({ error: 'Registration failed due to server error.' });
+    }
   }
-});
+);
 
 // User Login
-app.post('/cred', sanitizeInput, [
-  body('user_log').notEmpty().withMessage('Username is required'),
-  body('key_log').notEmpty().withMessage('Password is required'),
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ error: errors.array()[0].msg });
-  }
-  const { user_log, key_log } = req.body;
-  try {
-    const user = await User.findOne({ user: user_log }, { user: 1, name: 1, key1: 1 });
-    if (!user) {
-      logger.info(`Login attempt failed: User ${user_log} not found`);
-      return res.status(400).json({ error: 'User does not exist!' });
+app.post(
+  '/cred',
+  sanitizeInput,
+  [
+    body('user_log').notEmpty().withMessage('Username is required'),
+    body('key_log').notEmpty().withMessage('Password is required'),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array()[0].msg });
     }
-    const passwordMatch = await bcrypt.compare(key_log, user.key1);
-    if (!passwordMatch) {
-      logger.info(`Login attempt failed: Incorrect password for ${user_log}`);
-      return res.status(400).json({ error: 'Incorrect password!' });
+    const { user_log, key_log } = req.body;
+    try {
+      const user = await User.findOne({ user: user_log }, { user: 1, name: 1, key1: 1 });
+      if (!user) {
+        logger.info(`Login attempt failed: User ${user_log} not found`);
+        return res.status(400).json({ error: 'User does not exist!' });
+      }
+      const passwordMatch = await bcrypt.compare(key_log, user.key1);
+      if (!passwordMatch) {
+        logger.info(`Login attempt failed: Incorrect password for ${user_log}`);
+        return res.status(400).json({ error: 'Incorrect password!' });
+      }
+      res.status(200).json({ name: user.name, user: user.user });
+    } catch (err) {
+      logger.error('Login error:', err);
+      res.status(500).json({ error: 'Server error during login.' });
     }
-    res.status(200).json({ name: user.name, user: user.user });
-  } catch (err) {
-    logger.error('Login error:', err);
-    res.status(500).json({ error: 'Server error during login.' });
   }
-});
+);
 
-// AI Chat Endpoint
-app.post('/msghome', sanitizeInput, [
-  body('msg').notEmpty().withMessage('Message required'),
-  body('username').notEmpty().withMessage('Username required'),
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ error: errors.array()[0].msg });
+app.get('/msghome', async (req, res) => {
+  const { msg, user, name } = req.query;
+  if (!msg || !user) {
+    logger.error('GET /msghome validation error: Message and user required');
+    return res.status(400).json({ error: 'Message and user required' });
   }
-  const { msg, username } = req.body;
   try {
-    const { reply } = await runPythonChat({ msg });
-    logger.info(`AI response for "${msg}" by ${username}: ${reply}`);
-    const message = { message: msg, reply, timestamp: new Date().toISOString(), username };
+    const { reply } = await runPythonChat({ msg, username: user, name });
+    logger.info(`GET /msghome response for "${msg}" by ${user}: ${reply}`);
+    const message = { message: msg, reply, timestamp: new Date().toISOString(), username: user };
     await saveMessage('msg', message);
-    const userSocketId = userSocketMap.get(username);
-    if (userSocketId) {
-      io.to(userSocketId).emit('ai message', { type: 'msg', username: 'Hina', message: reply, timestamp: message.timestamp });
-    }
     res.json({ reply });
   } catch (err) {
-    logger.error(`AI error in /msghome: ${err.message}`);
+    logger.error(`GET /msghome error: ${err.message}`);
     res.status(500).json({ error: 'Failed to get AI reply' });
   }
 });
 
-// Wiki Query Endpoint (Non-persistent)
-app.post('/wiki_cmd', sanitizeInput, [
-  body('msg').notEmpty().withMessage('Message required'),
-  body('username').notEmpty().withMessage('Username required'),
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ error: errors.array()[0].msg });
-  }
-  const { msg, username } = req.body;
-  try {
-    const { reply } = await runWikiProcess({ prompt: msg });
-    logger.info(`Wiki response for "${msg}" by ${username}: ${reply || 'No reply'}`);
-    const userSocketId = userSocketMap.get(username);
-    if (userSocketId) {
-      io.to(userSocketId).emit('wiki message', { username: 'Hina', reply: reply || 'page not found', timestamp: new Date().toISOString() });
+// Wiki Query Endpoint
+app.post(
+  '/wiki_cmd',
+  sanitizeInput,
+  [
+    body('msg').notEmpty().withMessage('Message required'),
+    body('username').notEmpty().withMessage('Username required'),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array()[0].msg });
     }
-    res.json({ reply: `wiki says: ${reply || 'page not found'}` });
-  } catch (err) {
-    logger.error(`Wiki error in /wiki_cmd: ${err.message}`);
-    res.json({ error: 'server: page not found' });
+    const { msg, username } = req.body;
+    try {
+      const { reply } = await runWikiProcess({ prompt: msg });
+      logger.info(`Wiki response for "${msg}" by ${username}: ${reply || 'No reply'}`);
+      const userSocketId = userSocketMap.get(username);
+      if (userSocketId) {
+        io.to(userSocketId).emit('wiki message', {
+          username: 'Hina',
+          reply: reply || 'page not found',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      res.json({ reply: `wiki says: ${reply || 'page not found'}` });
+    } catch (err) {
+      logger.error(`Wiki error in /wiki_cmd: ${err.message}`);
+      res.json({ error: 'server: page not found' });
+    }
   }
-});
+);
 
 // Chat History Endpoint
 app.get('/chat_history', async (req, res) => {
   const { type, user1 } = req.query;
-  if (type !== 'msg' || !user1) {
-    return res.status(400).json({ error: 'Type must be "msg" and user1 is required' });
-  }
-  try {
-    const messages = await getChatHistory(type, user1);
-    res.json({ messages });
-  } catch (err) {
-    logger.error(`Error fetching AI history:`, err);
-    res.status(500).json({ error: 'Failed to fetch chat history' });
+  if (type === 'msg' && user1) {
+    try {
+      const messages = await getChatHistory(type, user1);
+      res.json({ messages });
+    } catch (err) {
+      logger.error(`Error fetching AI chat history:`, err);
+      res.status(500).json({ error: 'Failed to fetch chat history' });
+    }
+  } else if (type === 'worldchat') {
+    try {
+      const messages = await getWorldChatHistory();
+      res.json({ messages });
+    } catch (err) {
+      logger.error(`Error fetching world chat history:`, err);
+      res.status(500).json({ error: 'Failed to fetch world chat history' });
+    }
+  } else {
+    return res.status(400).json({ error: 'Type must be "msg" (with user1) or "worldchat"' });
   }
 });
 
 // Friend Request and Other Endpoints
-app.post('/friend_request', sanitizeInput, [
-  body('from').notEmpty().withMessage('From is required'),
-  body('to').notEmpty().withMessage('To is required'),
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ error: errors.array()[0].msg });
-  }
-  const { from, to } = req.body;
-  if (from === to) {
-    return res.status(400).json({ error: 'Cannot add yourself' });
-  }
-  try {
-    const recipient = await User.findOne({ user: to }, { user: 1, fr_await: 1, f: 1 });
-    if (!recipient) {
-      logger.info(`Friend request failed: User ${to} not found`);
-      return res.status(400).json({ error: `${to} not found` });
+app.post(
+  '/friend_request',
+  sanitizeInput,
+  [
+    body('from').notEmpty().withMessage('From is required'),
+    body('to').notEmpty().withMessage('To is required'),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array()[0].msg });
     }
-    if (recipient.fr_await.includes(from)) {
-      logger.info(`Friend request already sent from ${from} to ${to}`);
-      return res.status(400).json({ error: `Friend request already sent to ${to}` });
+    const { from, to } = req.body;
+    if (from === to) {
+      return res.status(400).json({ error: 'Cannot add yourself' });
     }
-    if (recipient.f.includes(from)) {
-      logger.info(`${to} is already a friend of ${from}`);
-      return res.status(400).json({ error: `${to} is already a friend` });
-    }
-    await User.updateOne({ user: to }, { $addToSet: { fr_await: from } });
-    const recipientSocketId = userSocketMap.get(to);
-    if (recipientSocketId) {
-      io.to(recipientSocketId).emit('friendRequest', { from });
-    }
-    logger.info(`Friend request sent from ${from} to ${to}`);
-    res.json({ message: `Friend request sent to ${to}` });
-  } catch (err) {
-    logger.error('Friend request error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-app.post('/fr_response', sanitizeInput, [
-  body('action').isIn(['accept', 'reject']).withMessage('Invalid action'),
-  body('from').notEmpty().withMessage('From is required'),
-  body('to').notEmpty().withMessage('To is required'),
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ error: errors.array()[0].msg });
-  }
-  const { action, from, to } = req.body;
-  try {
-    const recipient = await User.findOne({ user: to }, { fr_await: 1, f: 1 });
-    if (!recipient || !recipient.fr_await.includes(from)) {
-      return res.status(400).json({ error: 'No such friend request' });
-    }
-    if (action === 'accept') {
-      const sender = await User.findOne({ user: from }, { f: 1 });
-      if (!sender) {
-        return res.status(400).json({ error: `${from} not found` });
+    try {
+      const recipient = await User.findOne({ user: to }, { user: 1, fr_await: 1, f: 1 });
+      if (!recipient) {
+        logger.info(`Friend request failed: User ${to} not found`);
+        return res.status(400).json({ error: `${to} not found` });
       }
-      await User.updateOne({ user: from }, { $addToSet: { f: to } });
-      await User.updateOne(
-        { user: to },
-        { $addToSet: { f: from }, $pull: { fr_await: from } }
-      );
+      if (recipient.fr_await.includes(from)) {
+        logger.info(`Friend request already sent from ${from} to ${to}`);
+        return res.status(400).json({ error: `Friend request already sent to ${to}` });
+      }
+      if (recipient.f.includes(from)) {
+        logger.info(`${to} is already a friend of ${from}`);
+        return res.status(400).json({ error: `${to} is already a friend` });
+      }
+      await User.updateOne({ user: to }, { $addToSet: { fr_await: from } });
       const recipientSocketId = userSocketMap.get(to);
       if (recipientSocketId) {
-        io.to(recipientSocketId).emit('friendRequestAccepted', { from });
+        io.to(recipientSocketId).emit('friendRequest', { from });
       }
-      logger.info(`Friend request accepted from ${from} to ${to}`);
-      res.json({ message: 'Friend request accepted', from });
-    } else {
-      await User.updateOne({ user: to }, { $pull: { fr_await: from } });
-      logger.info(`Friend request rejected from ${from} to ${to}`);
-      res.json({ message: 'Friend request rejected', from });
+      logger.info(`Friend request sent from ${from} to ${to}`);
+      res.json({ message: `Friend request sent to ${to}` });
+    } catch (err) {
+      logger.error('Friend request error:', err);
+      res.status(500).json({ error: 'Server error' });
     }
-  } catch (err) {
-    logger.error('Friend response error:', err);
-    res.status(500).json({ error: 'Server error' });
   }
-});
+);
+
+app.post(
+  '/fr_response',
+  sanitizeInput,
+  [
+    body('action').isIn(['accept', 'reject']).withMessage('Invalid action'),
+    body('from').notEmpty().withMessage('From is required'),
+    body('to').notEmpty().withMessage('To is required'),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array()[0].msg });
+    }
+    const { action, from, to } = req.body;
+    try {
+      const recipient = await User.findOne({ user: to }, { fr_await: 1, f: 1 });
+      if (!recipient || !recipient.fr_await.includes(from)) {
+        return res.status(400).json({ error: 'No such friend request' });
+      }
+      if (action === 'accept') {
+        const sender = await User.findOne({ user: from }, { f: 1 });
+        if (!sender) {
+          return res.status(400).json({ error: `${from} not found` });
+        }
+const socket = io('https://4ed9-49-36-191-72.ngrok-free.app', {
+  transports: ['polling'], // Force polling to bypass WebSocket issues
+  reconnectionAttempts: 10,
+  reconnectionDelay: 1000,
+  extraHeaders: {
+    'ngrok-skip-browser-warning': 'true',
+  },
+});        await User.updateOne({ user: to }, { $addToSet: { f: from }, $pull: { fr_await: from } });
+        const recipientSocketId = userSocketMap.get(to);
+        if (recipientSocketId) {
+          io.to(recipientSocketId).emit('friendRequestAccepted', { from });
+        }
+        logger.info(`Friend request accepted from ${from} to ${to}`);
+        res.json({ message: 'Friend request accepted', from });
+      } else {
+        await User.updateOne({ user: to }, { $pull: { fr_await: from } });
+        logger.info(`Friend request rejected from ${from} to ${to}`);
+        res.json({ message: 'Friend request rejected', from });
+      }
+    } catch (err) {
+      logger.error('Friend response error:', err);
+      res.status(500).json({ error: 'Server error' });
+    }
+  }
+);
 
 app.get('/fr_requests', async (req, res) => {
   const { user } = req.query;
@@ -514,26 +603,29 @@ app.get('/friends', async (req, res) => {
   }
 });
 
-app.post('/batch_status', sanitizeInput, [
-  body('users').isArray().withMessage('Users must be an array'),
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ error: errors.array()[0].msg });
+app.post(
+  '/batch_status',
+  sanitizeInput,
+  [body('users').isArray().withMessage('Users must be an array')],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array()[0].msg });
+    }
+    const { users } = req.body;
+    try {
+      const statuses = await User.find({ user: { $in: users } }, { user: 1, status: 1 });
+      const statusMap = statuses.reduce((map, user) => {
+        map[user.user] = user.status ? 'online' : 'offline';
+        return map;
+      }, {});
+      res.json({ statuses: statusMap });
+    } catch (err) {
+      logger.error('Batch status error:', err);
+      res.status(500).json({ error: 'Server error' });
+    }
   }
-  const { users } = req.body;
-  try {
-    const statuses = await User.find({ user: { $in: users } }, { user: 1, status: 1 });
-    const statusMap = statuses.reduce((map, user) => {
-      map[user.user] = user.status ? 'online' : 'offline';
-      return map;
-    }, {});
-    res.json({ statuses: statusMap });
-  } catch (err) {
-    logger.error('Batch status error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+);
 
 app.get('/status', async (req, res) => {
   const { user } = req.query;
@@ -615,11 +707,7 @@ io.on('connection', (socket) => {
     userSocketMap.set(user, socket.id);
     socket.user = user;
     try {
-      await User.findOneAndUpdate(
-        { user },
-        { $set: { status: true } },
-        { upsert: true, new: true }
-      );
+      await User.findOneAndUpdate({ user }, { $set: { status: true } }, { upsert: true, new: true });
       socket.emit('status update', { user, status: true });
       const userData = await User.findOne({ user }, { f: 1 });
       if (userData && userData.f && Array.isArray(userData.f)) {
@@ -635,6 +723,18 @@ io.on('connection', (socket) => {
       logger.error('Auth error:', err);
       socket.emit('error', { message: 'Failed to authenticate' });
     }
+  });
+
+  socket.on('world message', async ({ username, message, timestamp }) => {
+    if (!username || !message || !timestamp) {
+      socket.emit('error', { message: 'Invalid world message data' });
+      return;
+    }
+    const messageData = { username, message, timestamp };
+    await saveWorldChatMessage(messageData);
+    logger.info(`World message from ${username}: ${message}`);
+    // Notify all clients to refresh their chat
+    io.emit('new world message');
   });
 
   socket.on('chat message2', ({ user }) => {
@@ -771,6 +871,7 @@ process.on('SIGINT', gracefulShutdown);
 async function startServer() {
   try {
     await initChatFile();
+    await initWorldChatFile();
     await connectMongoDB();
     server.listen(port, () => {
       logger.info(`Server running on http://localhost:${port}`);
