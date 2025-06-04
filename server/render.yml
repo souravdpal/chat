@@ -1,8 +1,0 @@
-services:
-  - type: web
-    name: chat-server
-    env: node
-    buildCommand: cd chat/server && npm install
-    startCommand: cd chat/server && npm start
-    rootDirectory: chat/server
-    autoDeploy: true
