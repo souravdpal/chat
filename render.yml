@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: chat-backup-app
+    env: node
+    plan: free
+    rootDir: server  # Important: since your Node.js code is in `server/`
+    buildCommand: |
+      npm install
+      pip install -r ../requirements.txt  # if Python code is outside server/
+
+    startCommand: node server.js
+
+    buildEnvVars:
+      - key: PYTHON_VERSION
+        value: 3.10
+
+    
