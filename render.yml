@@ -1,12 +1,13 @@
 services:
   - type: web
-    name: chat
+    name: chat-backup-app
     env: node
     plan: free
-    rootDir: server  # Important: since your Node.js code is in `server/`
+    rootDir: server  # This is where Render should look for server code (relative to repo root)
+
     buildCommand: |
       npm install
-      pip install -r ../requirements.txt  # if Python code is outside server/
+      pip install -r requirements.txt
 
     startCommand: node server.js
 
@@ -14,4 +15,4 @@ services:
       - key: PYTHON_VERSION
         value: 3.10
 
-    
+  
