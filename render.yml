@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: chat-backup-app
+    name: chat
     env: node
     plan: free
     rootDir: server  # Important: since your Node.js code is in `server/`
