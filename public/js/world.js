@@ -334,7 +334,7 @@ const testMessage = {
 };
 const t1 = {
   username: '~sourav',
-  message: 'hey guys welcome to the world chat where anyone can connect without any problem talk anyone and make //friend//!',
+  message: 'hey guys welcome to the world chat where anyone can connect without any problem talk ancyone and make //friend//!',
   timestamp: '00'
 };
 showMessage({ sender: testMessage.username, text: testMessage.message, timestamp: testMessage.timestamp }, 'other');
