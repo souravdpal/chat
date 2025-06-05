@@ -201,7 +201,7 @@ async function getWorldChatHistory() {
     return [];
   }
 }
-
+app.set('trust proxy', 1);
 // CORS configuration
 const io = new Server(server, {
   cors: {
