@@ -17,6 +17,8 @@ const { body, validationResult } = require('express-validator');
 const app = express();
 const server = http.createServer(app);
 const port = process.env.PORT || 3000;
+
+s
 const saltRounds = parseInt(process.env.SALT_ROUNDS) || 12;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data', 'json');
 const WORLD_CHAT_DIR = path.join(__dirname, '..', 'data', 'worldchat');
@@ -873,14 +875,14 @@ async function startServer() {
     await initChatFile();
     await initWorldChatFile();
     await connectMongoDB();
-    server.listen(port, () => {
-      logger.info(`Server running on http://localhost:${port}`);
+    server.listen(port, '0.0.0.0', () => {
+      logger.info(`Server running on http://0.0.0.0:${port}`);
     });
     server.on('error', (err) => {
       if (err.code === 'EADDRINUSE') {
         logger.error(`Port ${port} is already in use. Trying port ${parseInt(port) + 1}...`);
-        server.listen(parseInt(port) + 1, () => {
-          logger.info(`Server running on http://localhost:${parseInt(port) + 1}`);
+        server.listen(parseInt(port) + 1, '0.0.0.0', () => {
+          logger.info(`Server running on http://0.0.0.0:${parseInt(port) + 1}`);
         });
       } else {
         logger.error('Unexpected server error:', err);
