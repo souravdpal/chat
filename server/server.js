@@ -176,7 +176,7 @@ async function getChatHistory(type, user1) {
         if (Array.isArray(data.msg)) {
           messages = messages.concat(data.msg);
         }
-      } catch {}
+      } catch { }
     }
     if (user1) {
       messages = messages.filter((msg) => msg.username === user1);
@@ -207,7 +207,7 @@ const io = new Server(server, {
   cors: {
     origin: process.env.CORS_ORIGINS
       ? process.env.CORS_ORIGINS.split(',')
-      : ['http://localhost:3000', 'https://chatgpt-voice-assistant.vercel.app'],
+      : ['http://localhost:3000', 'https://chatgpt-voice-assistant.vercel.app', 'https://hina-ai.onrender.com/'],
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -218,14 +218,14 @@ app.use(
   cors({
     origin: process.env.CORS_ORIGINS
       ? process.env.CORS_ORIGINS.split(',')
-      : ['http://localhost:3000', 'https://chatgpt-voice-assistant.vercel.app'],
+      : ['http://localhost:3000', 'https://chatgpt-voice-assistant.vercel.app', 'https://hina-ai.onrender.com/'],
     credentials: true,
   })
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '..', 'public'), { extensions: ['html'] }));
-app.use(express.static(path.join(__dirname, '..', 'assets','images'), { extensions: ['png'] }));
+app.use(express.static(path.join(__dirname, '..', 'assets', 'images'), { extensions: ['png'] }));
 
 // Rate limiting
 const limiter = rateLimit({
@@ -300,21 +300,20 @@ async function connectMongoDB() {
   let retries = 0;
   while (retries < maxRetries) {
     try {
-      await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/chat_app');
+      await mongoose.connect(process.env.MONGO_URI);
       logger.info('Connected to MongoDB!');
       return;
     } catch (err) {
       retries += 1;
       logger.error(`MongoDB connection attempt ${retries} failed:`, err);
       if (retries === maxRetries) {
-        logger.error('Max MongoDB connection retries reached. Exiting...');
-        process.exit(1);
+        logger.error('Max MongoDB connection retries reached. Server will continue without MongoDB.');
+        return; // Continue without exiting
       }
       await new Promise((resolve) => setTimeout(resolve, 5000));
     }
   }
 }
-
 // User Schema
 const userSchema = new mongoose.Schema(
   {
@@ -543,14 +542,14 @@ app.post(
         if (!sender) {
           return res.status(400).json({ error: `${from} not found` });
         }
-const socket = io('https://4ed9-49-36-191-72.ngrok-free.app', {
-  transports: ['polling'], // Force polling to bypass WebSocket issues
-  reconnectionAttempts: 10,
-  reconnectionDelay: 1000,
-  extraHeaders: {
-    'ngrok-skip-browser-warning': 'true',
-  },
-});        await User.updateOne({ user: to }, { $addToSet: { f: from }, $pull: { fr_await: from } });
+        const socket = io('https://hina-ai.onrender.com', {
+          transports: ['polling'], // Force polling to bypass WebSocket issues
+          reconnectionAttempts: 10,
+          reconnectionDelay: 1000,
+          extraHeaders: {
+            'ngrok-skip-browser-warning': 'true',
+          },
+        }); await User.updateOne({ user: to }, { $addToSet: { f: from }, $pull: { fr_await: from } });
         const recipientSocketId = userSocketMap.get(to);
         if (recipientSocketId) {
           io.to(recipientSocketId).emit('friendRequestAccepted', { from });
@@ -869,6 +868,8 @@ const gracefulShutdown = async () => {
 process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);
 
+// Start server
+// Start server
 async function startServer() {
   try {
     await initChatFile();
@@ -878,10 +879,49 @@ async function startServer() {
       logger.info(`Server running on http://0.0.0.0:${port}`);
       console.log(`Server is listening on port ${port}`);
     });
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        logger.error(`Port ${port} is already in use. Trying port ${parseInt(port) + 1}...`);
+        server.listen(parseInt(port) + 1, '0.0.0.0', () => {
+          logger.info(`Server running on http://0.0.0.0:${parseInt(port) + 1}`);
+          console.log(`Server is listening on port ${parseInt(port) + 1}`);
+        });
+      } else {
+        logger.error('Unexpected server error:', err.stack);
+        console.error('Server error:', err.message);
+        process.exit(1);
+      }
+    });
   } catch (err) {
-    logger.error('Failed to start server:', err.stack); // Include stack trace
-    console.error('Startup error:', err.message); // Add for debugging
+    logger.error('Failed to start server:', err.stack);
+    console.error('Startup error:', err.message);
     process.exit(1);
   }
 }
+
+// Handle uncaught errors
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught Exception:', err.stack);
+  console.error('Uncaught Exception:', err.message);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  console.error('Unhandled Rejection:', reason);
+});
+
+startServer();
+
+// Handle uncaught errors
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught Exception:', err.stack);
+  console.error('Uncaught Exception:', err.message);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  console.error('Unhandled Rejection:', reason);
+});
+
+startServer();
 startServer();
