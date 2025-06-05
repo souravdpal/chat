@@ -881,7 +881,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // Start server
-startServer();
+//startServer();
 process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);
 
