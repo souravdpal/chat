@@ -18,7 +18,7 @@ const app = express();
 const server = http.createServer(app);
 const port = process.env.PORT || 3000;
 
-s
+
 const saltRounds = parseInt(process.env.SALT_ROUNDS) || 12;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data', 'json');
 const WORLD_CHAT_DIR = path.join(__dirname, '..', 'data', 'worldchat');
