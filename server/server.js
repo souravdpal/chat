@@ -850,6 +850,7 @@ io.on('connection', (socket) => {
 });
 
 // Graceful shutdown
+// Graceful shutdown
 const gracefulShutdown = async () => {
   logger.info('Starting graceful shutdown...');
   try {
@@ -865,6 +866,22 @@ const gracefulShutdown = async () => {
   }
 };
 
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
+
+// Handle uncaught errors
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught Exception:', err.stack);
+  console.error('Uncaught Exception:', err.message);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  console.error('Unhandled Rejection:', reason);
+});
+
+// Start server
+startServer();
 process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);
 
@@ -910,7 +927,6 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection:', reason);
 });
 
-startServer();
 
 // Handle uncaught errors
 process.on('uncaughtException', (err) => {
@@ -923,5 +939,4 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection:', reason);
 });
 
-startServer();
-startServer();
+startServer()
