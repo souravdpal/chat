@@ -869,7 +869,6 @@ const gracefulShutdown = async () => {
 process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);
 
-// Start server
 async function startServer() {
   try {
     await initChatFile();
@@ -877,22 +876,12 @@ async function startServer() {
     await connectMongoDB();
     server.listen(port, '0.0.0.0', () => {
       logger.info(`Server running on http://0.0.0.0:${port}`);
-    });
-    server.on('error', (err) => {
-      if (err.code === 'EADDRINUSE') {
-        logger.error(`Port ${port} is already in use. Trying port ${parseInt(port) + 1}...`);
-        server.listen(parseInt(port) + 1, '0.0.0.0', () => {
-          logger.info(`Server running on http://0.0.0.0:${parseInt(port) + 1}`);
-        });
-      } else {
-        logger.error('Unexpected server error:', err);
-        process.exit(1);
-      }
+      console.log(`Server is listening on port ${port}`);
     });
   } catch (err) {
-    logger.error('Failed to start server:', err);
+    logger.error('Failed to start server:', err.stack); // Include stack trace
+    console.error('Startup error:', err.message); // Add for debugging
     process.exit(1);
   }
 }
-
 startServer();
