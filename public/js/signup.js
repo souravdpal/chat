@@ -26,7 +26,7 @@ document.getElementById("btn").addEventListener("click", async() => {
             if (response.ok) {
                 return response.text().then(data=>{
                     alert(data)
-                     window.location.href = "login.html"
+                     window.location.href = "/login"
 
                 })
                

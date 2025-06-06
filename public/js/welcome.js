@@ -9,7 +9,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // After animation (3 seconds), show the redirect message
     setTimeout(() => {
       loadingMessage.classList.add('redirecting');
-      window.location.href = 'home.html';
+      window.location.href = '/login';
     }, 3000);
   }
 });

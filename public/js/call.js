@@ -5,7 +5,7 @@ if (!userName) {
 }
 alert('sorry but calling feature not ready yet!')
 // Initialize Socket.IO with the correct ngrok URL
-const socket = io(' https://b3ca-49-36-191-72.ngrok-free.app', { // Update to the latest ngrok URL
+const socket = io(' https://hina-ai.onrender.com', { // Update to the latest ngrok URL
   transports: ['websocket', 'polling'], // Try WebSocket first, fallback to polling
   reconnectionAttempts: 10,
   reconnectionDelay: 1000,
@@ -280,7 +280,7 @@ function endCall() {
   socket.emit('endCall', { from: userName, to: toUser });
   console.log('Call ended');
   setTimeout(() => {
-    window.location.href = 'friends.html';
+    window.location.href = '/f';
   }, 500);
 }
 
