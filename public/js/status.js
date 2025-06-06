@@ -8,7 +8,7 @@ const user_name = localStorage.getItem("user");
 
 if (!user_name) {
   alert("Please log in to continue.");
-  window.location.href = "login.html";
+  window.location.href = "/login";
 } else {
   statusSocket.on("connect", () => {
     console.log("✅ Status socket connected:", statusSocket.id);

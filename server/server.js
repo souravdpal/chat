@@ -225,7 +225,7 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '..', 'public'), { extensions: ['html'] }));
-app.use(express.static(path.join(__dirname, '..', 'assets', 'images'), { extensions: ['png'] }));
+app.use(express.static(path.join(__dirname, '..', 'assets', 'images'), { extensions: ['png' , 'ico'] }));
 
 // Rate limiting
 const limiter = rateLimit({

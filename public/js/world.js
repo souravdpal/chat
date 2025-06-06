@@ -30,7 +30,7 @@ function filterPlaceholders(text) {
       '"': '"',
       
     })[char]);
-    return `<a href="home.html" target="_blank">${sanitizedText}</a>`;
+    return `<a href="/home" target="_blank">${sanitizedText}</a>`;
   });
    result = result.replace(/\/\/(.*?)\/\//g, (match, p1) => {
     const sanitizedText = p1.replace(/[<>&"']/g, (char) => ({
@@ -40,7 +40,7 @@ function filterPlaceholders(text) {
       '"': '&quot;',
       "'": '&#39;'
     })[char]);
-    return `<a href="f.html" target="_blank">${sanitizedText}</a>`;
+    return `<a href="/f" target="_blank">${sanitizedText}</a>`;
   });
   return result;
 }

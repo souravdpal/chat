@@ -32,7 +32,7 @@ let info = async () => {
         localStorage.setItem('user', user);
 
         alert(`${name}, welcome!`);
-        window.location.href = "home.html";
+        window.location.href = "/home";
 
     } catch (error) {
         console.error('Login error:', error);
