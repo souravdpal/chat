@@ -1,79 +1,47 @@
 const socket = window.socket || io('/', { autoConnect: true });
 const ins = document.getElementById('here');
-if (!ins) {
-  console.error('Element with ID "here" not found in the DOM.');
-  alert('Error: Missing required DOM element "here". Please check the HTML structure.');
-}
 const name1 = localStorage.getItem('name');
 const user = localStorage.getItem('user');
 const way = document.getElementById('btn');
-const type = document.getElementById('type');
 const input = document.getElementById('take');
 const joiner = document.getElementById('join');
+const themeToggleBtn = document.getElementById('themeToggleBtn');
 
+if (!ins) {
+  console.error('Element with ID "here" not found in the DOM.');
+  alert('Error: Missing required DOM element "here". Please check the HTML structure.');
+  throw new Error('Missing DOM element: here');
+}
 
+// Theme Handling
+themeToggleBtn.addEventListener('click', () => {
+  document.body.classList.toggle('dark-mode');
+  const icon = themeToggleBtn.querySelector('i');
+  icon.classList.toggle('fa-moon');
+  icon.classList.toggle('fa-sun');
+  localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+});
 
+const savedTheme = localStorage.getItem('theme');
+if (savedTheme) {
+  if (savedTheme === 'dark') {
+    document.body.classList.add('dark-mode');
+    themeToggleBtn.querySelector('i').classList.replace('fa-moon', 'fa-sun');
+  } else {
+    document.body.classList.remove('dark-mode');
+    themeToggleBtn.querySelector('i').classList.replace('fa-sun', 'fa-moon');
+  }
+}
 
-    const themes = ['light', 'dark', 'blue'];
-    let currentThemeIndex = 0;
-
-    // Load theme from localStorage if available
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme && themes.includes(savedTheme)) {
-      currentThemeIndex = themes.indexOf(savedTheme);
-      document.documentElement.setAttribute('data-theme', savedTheme);
-    } else {
-      currentThemeIndex = themes.indexOf('dark');
-      document.documentElement.setAttribute('data-theme', 'dark');
-    }
-    
-    function toggleTheme() {
-      currentThemeIndex = (currentThemeIndex + 1) % themes.length;
-      const newTheme = themes[currentThemeIndex];
-      document.documentElement.setAttribute('data-theme', newTheme);
-      localStorage.setItem('theme', newTheme);
-    }
-
-    // Navbar animations
-    document.addEventListener('DOMContentLoaded', () => {
-      const logo = document.querySelector('.logo');
-      const navLinks = document.querySelectorAll('.nav-link');
-
-      // Logo hover effect
-      logo.addEventListener('mouseenter', () => {
-        logo.style.transform = 'scale(1.1)';
-      });
-      logo.addEventListener('mouseleave', () => {
-        logo.style.transform = 'scale(1)';
-      });
-
-      // Nav links hover effect
-      navLinks.forEach(link => {
-        link.addEventListener('mouseenter', () => {
-          link.style.transform = 'scale(1.05)';
-        });
-        link.addEventListener('mouseleave', () => {
-          link.style.transform = 'scale(1)';
-        });
-      });
-    });
-
-
-
-
-
-
-// Available models (placeholder messages)
+// Available models
 const avail_models = [
   "server: **note: models are not available in this version, but you can use them in the future**",
   "**because we have Hina and she is working fine in every aspect, we will soon add task-specific models**"
 ];
 
-// Track loaded messages
 const loadedMessages = new Set();
 let isHistoryLoaded = false;
 
-// Generate unique message ID
 function generateMessageId(msg) {
   const { timestamp, username, message, reply } = msg;
   const content = message || reply || '';
@@ -100,8 +68,186 @@ function personalizeText(text) {
   return result;
 }
 
-// Add message to chat
-function addMessage(msg, isUser) {
+// Word-by-Word Typing Animation for Plain Text
+function typeMessage(element, words, callback) {
+  let index = 0;
+
+  function typeWord() {
+    if (index < words.length) {
+      element.innerHTML += (index > 0 ? ' ' : '') + words[index];
+      index++;
+      ins.scrollTo({ top: ins.scrollHeight, behavior: 'smooth' });
+      setTimeout(typeWord, 100); // 100ms delay per word
+    } else if (callback) {
+      callback();
+    }
+  }
+
+  typeWord();
+}
+
+// Fallback for copying text when Clipboard API is unavailable
+function copyTextFallback(content, copyButton) {
+  const textArea = document.createElement('textarea');
+  textArea.value = content;
+  document.body.appendChild(textArea);
+  textArea.select();
+  try {
+    document.execCommand('copy');
+    copyButton.textContent = 'Copied!';
+    copyButton.classList.add('copied');
+    setTimeout(() => {
+      copyButton.textContent = 'Copy Code';
+      copyButton.classList.remove('copied');
+    }, 2000);
+  } catch (err) {
+    copyButton.textContent = 'Copy Failed';
+    console.error('Fallback copy failed:', err);
+  } finally {
+    document.body.removeChild(textArea);
+  }
+}
+
+// Display Message with HTML Parsing
+function displayMessage(messageElement, content, isCode = false, skipAnimation = false) {
+  if (isCode) {
+    const container = document.createElement('div');
+    container.className = 'code-block-container';
+
+    const codeElement = document.createElement('div');
+    codeElement.className = 'code-block';
+    codeElement.textContent = content;
+
+    const copyButton = document.createElement('button');
+    copyButton.className = 'copy-code-btn';
+    copyButton.textContent = 'Copy Code';
+    copyButton.addEventListener('click', () => {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(content).then(() => {
+          copyButton.textContent = 'Copied!';
+          copyButton.classList.add('copied');
+          setTimeout(() => {
+            copyButton.textContent = 'Copy Code';
+            copyButton.classList.remove('copied');
+          }, 2000);
+        }).catch(err => {
+          console.error('Clipboard API failed:', err);
+          copyTextFallback(content, copyButton);
+        });
+      } else {
+        copyTextFallback(content, copyButton);
+      }
+    });
+
+    container.appendChild(codeElement);
+    container.appendChild(copyButton);
+    messageElement.appendChild(container);
+  } else {
+    // Parse content to separate HTML elements and plain text
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(`<div>${content}</div>`, 'text/html');
+    const segments = [];
+    let currentText = '';
+
+    doc.body.firstChild.childNodes.forEach(node => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        currentText += node.textContent;
+      } else {
+        if (currentText.trim()) {
+          segments.push({ type: 'text', content: currentText.trim() });
+          currentText = '';
+        }
+        const div = document.createElement('div');
+        div.appendChild(node.cloneNode(true));
+        segments.push({ type: 'html', content: div.innerHTML });
+      }
+    });
+
+    if (currentText.trim()) {
+      segments.push({ type: 'text', content: currentText.trim() });
+    }
+
+    // Render segments
+    let index = 0;
+    function renderSegment() {
+      if (index >= segments.length) {
+        return;
+      }
+
+      const segment = segments[index];
+      const span = document.createElement('span');
+      messageElement.appendChild(span);
+
+      if (segment.type === 'text') {
+        if (skipAnimation) {
+          // Render text directly without animation
+          span.textContent = segment.content;
+          ins.scrollTo({ top: ins.scrollHeight, behavior: 'smooth' });
+          index++;
+          renderSegment();
+        } else {
+          // Apply word-by-word animation
+          const words = segment.content.split(' ');
+          typeMessage(span, words, () => {
+            index++;
+            renderSegment();
+          });
+        }
+      } else {
+        span.innerHTML = segment.content;
+        ins.scrollTo({ top: ins.scrollHeight, behavior: 'smooth' });
+        index++;
+        setTimeout(renderSegment, 100);
+      }
+    }
+
+    renderSegment();
+  }
+}
+
+function processHinaResponse(hinaMessage, content, callback, skipAnimation = false) {
+  let reply = content.replace(/^Hina: Hina: Sir, Hello, sir!\s*/, 'Hina: ');
+  reply = reply.replace(/<strong>(.*?)<\/strong>/g, '<b>$1</b>');
+  reply = reply.replace(/\*(.*?)\*/g, '<i>$1</i>');
+  const currentTime = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
+  reply = reply.replace(/It's a lovely evening/g, `It's ${currentTime} IST on June 07, 2025`);
+  reply = reply.replace(/href="([^"]+)"\s*target="_blank"(?:\s*rel="noopener noreferrer")*>([^<]+)(?=!?)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$2</a>');
+  const urlRegex = /(https?:\/\/[^\s<]+|[a-zA-Z0-9-]+\.github\.io\/[^\s<]*)(?![^<]*>|[^<>]*<\/a>)/g;
+  reply = reply.replace(urlRegex, url => {
+    const href = url.startsWith('http') ? url : `https://${url}`;
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+  });
+  reply = reply.replace(/\* ([^\*]+)(?=\n|$)/g, '<li>$1</li>');
+  reply = reply.replace(/(<li>[^\*]+<\/li>)/g, '<ul>$1</ul>');
+  reply = reply.replace(/<\/ul>\s*<ul>/g, '');
+
+  const codeBlockRegex = /```([\s\S]*?)```/g;
+  const parts = reply.split(codeBlockRegex);
+  const messageBubble = hinaMessage;
+  let index = 0;
+
+  function processPart() {
+    if (index >= parts.length) {
+      callback?.();
+      return;
+    }
+
+    const part = parts[index].trim();
+    const isCode = index % 2 === 1;
+
+    if (part) {
+      displayMessage(messageBubble, part, isCode, skipAnimation);
+      ins.scrollTo({ top: ins.scrollHeight, behavior: 'smooth' });
+    }
+
+    index++;
+    setTimeout(processPart, part && !isCode ? 500 : 0);
+  }
+
+  processPart();
+}
+
+function addMessage(msg, isUser, skipAnimation = false) {
   if (!msg) return;
   if (typeof msg.message === 'string') {
     msg.message = personalizeText(msg.message);
@@ -122,77 +268,65 @@ function addMessage(msg, isUser) {
   if (chatType === 'personalchat') return;
 
   message.className = `message ${isUser ? 'user' : sender === 'Hina' ? 'ai' : 'other'}`;
+  message.setAttribute('data-sender', sender);
+  message.setAttribute('data-content', content);
 
   if (content.includes('here are list of commands')) {
     message.innerHTML = `
-      Ok, *${name1}*, here are the commands:
-      <ul class="command-list">
-         <li><span class="command">/custom</span> = add your custom prompts and make hina what you like her too!</li>
-        <li><span class="command">/r</span> = Clear chat</li>
-        <li><span class="command">/wiki</span> = Wiki search</li>
-        <li><span class="command">/save</span> = Save chat</li>
-        <li><span class="command">/invite</span> = Invite friend</li>
-        <li><span class="command">/f</span> = Chat with friend</li>
-        <li><span class="command">/m</span> = List models</li>
-      </ul>
+      <div>
+        Ok, <strong>${name1}</strong>, here are the commands:
+        <ul class="command-list">
+          <li><span class="command">/CUSTOM</span> = add your custom prompts and make Hina what you like her to be!</li>
+          <li><span class="command">/R</span> = Clear chat</li>
+          <li><span class="command">/WIKI</span> = Wiki search</li>
+          <li><span class="command">/SAVE</span> = Save chat</li>
+          <li><span class="command">/INVITE</span> = Invite friend</li>
+          <li><span class="command">/F</span> = Chat with friend</li>
+          <li><span class="command">/M</span> = List models</li>
+        </ul>
+      </div>
     `;
   } else if (content === avail_models.join('\n')) {
     message.innerHTML = `
-      <ul class="command-list">
-        ${avail_models.map(model => `<li><span class="message">${model}</span></li>`).join('')}
-      </ul>
+      <div>
+        <ul class="command-list">
+          ${avail_models.map(model => `<li><span class="message">${model}</span></li>`).join('')}
+        </ul>
+      </div>
     `;
   } else {
-    message.innerHTML = `<strong>${sender}:</strong> ${formatAIMessage(content)}`;
+    if (sender === 'Hina') {
+      processHinaResponse(message, content, () => {
+        ins.scrollTop = ins.scrollHeight;
+      }, skipAnimation);
+    } else {
+      message.innerHTML = `<div><strong>${sender}:</strong> </div>`;
+      displayMessage(message.querySelector('div'), content, false, skipAnimation);
+    }
   }
 
-  message.setAttribute('data-time', new Date(msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
   ins.appendChild(message);
   ins.scrollTop = ins.scrollHeight;
 }
 
-// Format AI message content
-function formatAIMessage(text) {
-  let content = text || '';
-  try {
-    content = content.replace(/(https?:\/\/[^\s"'>]+)/g, (url) => {
-      if (/<a[^>]*href=['"]?[^'">]*$/.test(content.slice(0, content.indexOf(url)))) return url;
-      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
-    });
-    content = content.replace(/\*\*(.*?)\*\*|\*(.*?)\*/g, '<strong>$1$2</strong>');
-    content = content.replace(/^\/\n([\s\S]*?)\n\/$/gm, (match, code) => {
-      return `<div class="code-wrapper"><pre><code>${code}</code></pre><button class="copy-btn" aria-label="Copy code to clipboard">Copy Code</button></div>`;
-    });
-    content = content.replace(/"""([\s\S]*?).../g, (match, code) => {
-      return `<div class="code-wrapper"><pre><code>${code}</code></pre><button class="copy-btn" aria-label="Copy code to clipboard">Copy Code</button></div>`;
-    });
-    content = content.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
-      return `<div class="code-wrapper"><pre><code class="language-${lang || 'text'}">${code}</code></pre><button class="copy-btn" aria-label="Copy code to clipboard">Copy Code</button></div>`;
-    });
-    content = content.replace(/`([^`<>]+)`/g, '<code>$1</code>');
-  } catch (e) {
-    console.error('Error formatting AI message:', e);
-  }
-  return content;
-}
-
-// Redirect if not logged in
 if (!user || !name1) {
   alert('Please log in to continue.');
   window.location.href = '/page.html';
 }
 
-// Validate DOM elements
-if (!ins || !way || !input || !type || !joiner) {
-  console.error('Missing DOM elements:', { ins, way, input, type, joiner });
+if (!ins || !way || !input || !joiner) {
+  console.error('Missing DOM elements:', { ins, way, input, joiner });
   alert('Error in page setup. Please check the HTML structure.');
+  throw new Error('Missing required DOM elements');
 }
 
-// Show join message
 joiner.innerHTML = `${name1} joined, welcome to chat!`;
-ins.innerHTML += `<div class="message other"><div class="command-example">Hey ${name1}, how are you? Enter "/" to see commands!</div></div>`;
+ins.innerHTML += `
+  <div class="message other">
+    <div>Hey ${name1}, how are you? Enter "/" to see commands!</div>
+  </div>
+`;
 
-// Initialize socket
 function initSocket() {
   socket.on('connect', () => {
     console.log('✅ Socket connected:', socket.id);
@@ -207,6 +341,7 @@ function initSocket() {
     socket.emit('auth', { user });
     socket.emit('chat message2', { user });
     fetchFriendRequests();
+    if (!isHistoryLoaded) fetchChatHistory();
   });
 
   socket.on('error', ({ message }) => {
@@ -216,13 +351,11 @@ function initSocket() {
 
   socket.on('ai message', ({ type, username, message, timestamp }) => {
     console.log('Received AI message:', { type, username, message, timestamp });
-    type.innerText = '';
     addMessage({ type, username, message, timestamp }, username === user);
   });
 
   socket.on('wiki message', ({ username, reply, timestamp }) => {
     console.log('Received wiki message:', { username, reply, timestamp });
-    type.innerText = '';
     addMessage({ type: 'msg', username, message: reply, timestamp }, false);
   });
 
@@ -250,12 +383,11 @@ function initSocket() {
   });
 }
 
-// Fetch AI chat history
 async function fetchChatHistory(retries = 3) {
   if (!ins || isHistoryLoaded) return;
   const loadingMsg = document.createElement('div');
   loadingMsg.className = 'message other';
-  loadingMsg.textContent = `Loading AI chat history...`;
+  loadingMsg.innerHTML = `<div>Loading AI chat history...</div>`;
   ins.appendChild(loadingMsg);
   ins.scrollTop = ins.scrollHeight;
 
@@ -265,6 +397,12 @@ async function fetchChatHistory(retries = 3) {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error(`Expected JSON, but received ${contentType || 'unknown content type'}`);
+      }
+
       const data = await response.json();
       loadingMsg.remove();
 
@@ -276,14 +414,14 @@ async function fetchChatHistory(retries = 3) {
             username: msg.username,
             message: msg.message,
             timestamp: msg.timestamp
-          }, msg.username === user);
+          }, msg.username === user, true); // Skip animation for history messages
           if (msg.reply) {
             addMessage({
               type: 'msg',
               username: 'Hina',
               message: msg.reply,
               timestamp: msg.timestamp
-            }, false);
+            }, false, true); // Skip animation for history replies
           }
         });
         isHistoryLoaded = true;
@@ -294,7 +432,7 @@ async function fetchChatHistory(retries = 3) {
     } catch (err) {
       console.error(`Attempt ${attempt} failed to fetch AI history:`, err.message);
       if (attempt === retries) {
-        loadingMsg.textContent = `Failed to load AI history after ${retries} attempts.`;
+        loadingMsg.innerHTML = `<div>Failed to load AI history after ${retries} attempts: ${err.message}</div>`;
         setTimeout(() => loadingMsg.remove(), 3000);
       }
       await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
@@ -302,28 +440,6 @@ async function fetchChatHistory(retries = 3) {
   }
 }
 
-// Copy code button functionality
-document.addEventListener('click', (e) => {
-  if (e.target.classList.contains('copy-btn')) {
-    const button = e.target;
-    const codeElement = button.previousElementSibling.querySelector('code');
-    const codeText = codeElement.textContent;
-
-    navigator.clipboard.writeText(codeText).then(() => {
-      button.textContent = 'Copied!';
-      button.classList.add('copied');
-      setTimeout(() => {
-        button.textContent = 'Copy Code';
-        button.classList.remove('copied');
-      }, 2000);
-    }).catch(err => {
-      console.error('Failed to copy code:', err);
-      button.textContent = 'Error';
-    });
-  }
-});
-
-// Add friend request to UI
 function addFriendRequest(fr1) {
   const requestId = `req-${fr1.replace(/\s+/g, '_')}`;
   if (document.getElementById(requestId)) return;
@@ -332,61 +448,16 @@ function addFriendRequest(fr1) {
   const rejectId = `reject-${fr1.replace(/\s+/g, '_')}`;
 
   ins.innerHTML += `
-    <div class="cleaner friend-request-container" id="${requestId}">
-      <div class="friend-request">
+    <div class="cleaner friend-request-container message other" id="${requestId}">
+      <div>
         <span class="friend-request-text"><strong>${fr1}</strong> sent you a friend request.</span>
         <div class="friend-request-buttons">
-          <button class="btn-accept" id="${acceptId}">Accept</button>
-          <button class="btn-reject" id="${rejectId}">Reject</button>
+          <button class="btn-accept" id="${acceptId}"><i class="fas fa-check"></i> Accept</button>
+          <button class="btn-reject" id="${rejectId}"><i class="fas fa-times"></i> Reject</button>
         </div>
       </div>
     </div>
   `;
-
-  const style = document.createElement('style');
-  style.textContent = `
-    .friend-request-container {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px;
-      margin: 10px 0;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      background-color: #f9f9f9;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-    .friend-request-text {
-      font-size: 16px;
-      color: #333;
-    }
-    .friend-request-buttons {
-      display: flex;
-      gap: 10px;
-    }
-    .btn-accept, .btn-reject {
-      padding: 5px 10px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    .btn-accept {
-      background-color: #4caf50;
-      color: white;
-    }
-    .btn-accept:hover {
-      background-color: #45a049;
-    }
-    .btn-reject {
-      background-color: #f44336;
-      color: white;
-    }
-    .btn-reject:hover {
-      background-color: #e53935;
-    }
-  `;
-  document.head.appendChild(style);
 
   setTimeout(() => {
     const acceptBtn = document.getElementById(acceptId);
@@ -439,7 +510,6 @@ function addFriendRequest(fr1) {
   }, 0);
 }
 
-// Fetch friend requests
 async function fetchFriendRequests() {
   try {
     const response = await fetch(`/fr_requests?user=${encodeURIComponent(user)}`, {
@@ -457,20 +527,29 @@ async function fetchFriendRequests() {
   }
 }
 
-// Handle sending messages and commands
 async function work() {
   const msg_box = input.value.trim();
   if (!msg_box) return;
 
-  if (msg_box === '/custom') {
-    ins.innerHTML += `<div class="message other"><div class="command-example">Hey ${name1}, adding custom prompts is coming soon!</div></div>`;
+  input.disabled = true;
+  way.disabled = true;
+  way.classList.add('loading');
+
+  if (msg_box === '/CUSTOM') {
+    ins.innerHTML += `<div class="message other"><div>Hey ${name1}, adding custom prompts is coming soon!</div></div>`;
     input.value = '';
+    input.disabled = false;
+    way.disabled = false;
+    way.classList.remove('loading');
     return;
   }
 
-  if (msg_box === '/n') {
+  if (msg_box === '/N') {
     alert(`Logged in as: ${name1} (${user})`);
     input.value = '';
+    input.disabled = false;
+    way.disabled = false;
+    way.classList.remove('loading');
     return;
   }
 
@@ -481,18 +560,32 @@ async function work() {
       timestamp: new Date().toISOString()
     }, false);
     input.value = '';
+    input.disabled = false;
+    way.disabled = false;
+    way.classList.remove('loading');
     return;
-  } else if (msg_box === '/r') {
-    ins.innerHTML = '';
+  } else if (msg_box === '/R') {
+    ins.innerHTML = `
+      <div class="notification" id="join">${name1} joined, welcome to chat!</div>
+      <div class="message other">
+        <div>Hey ${name1}, how are you? Enter "/" to see commands!</div>
+      </div>
+    `;
     loadedMessages.clear();
     isHistoryLoaded = false;
     input.value = '';
-    joiner.innerHTML = `${name1} joined, welcome to chat!`;
-    ins.innerHTML += `<div class="message other"><div class="command-example">Hey ${name1}, how are you? Enter "/" to see commands!</div></div>`;
+    input.disabled = false;
+    way.disabled = false;
+    way.classList.remove('loading');
     return;
-  } else if (msg_box === '/wiki') {
+  } else if (msg_box === '/WIKI') {
     const for_wiki = prompt('What do you want to ask Wiki?')?.trim();
-    if (!for_wiki) return;
+    if (!for_wiki) {
+      input.disabled = false;
+      way.disabled = false;
+      way.classList.remove('loading');
+      return;
+    }
     const wikiMsg = {
       type: 'msg',
       username: user,
@@ -500,7 +593,6 @@ async function work() {
       timestamp: new Date().toISOString()
     };
     addMessage(wikiMsg, true);
-    type.innerText = 'Wiki answering...';
     input.value = '';
 
     try {
@@ -511,12 +603,12 @@ async function work() {
       });
       const data = await response.json();
       if (response.ok && data.reply) {
-        /*addMessage({
+        addMessage({
           type: 'msg',
           username: 'Hina',
           message: data.reply,
           timestamp: new Date().toISOString()
-        }, false);*/
+        }, false);
       } else {
         console.error('Wiki error:', data);
         alert(`Wiki Error: ${data.error || 'Failed to get wiki response.'}`);
@@ -525,20 +617,30 @@ async function work() {
       console.error('Wiki fetch error:', err.message);
       alert('Failed to get wiki response.');
     } finally {
-      type.innerText = '';
+      input.disabled = false;
+      way.disabled = false;
+      way.classList.remove('loading');
     }
     return;
-  } else if (msg_box === '/m') {
+  } else if (msg_box === '/M') {
     input.value = '';
     addMessage({
       type: 'other',
       message: avail_models.join('\n'),
       timestamp: new Date().toISOString()
     }, false);
+    input.disabled = false;
+    way.disabled = false;
+    way.classList.remove('loading');
     return;
-  } else if (msg_box === '/invite') {
+  } else if (msg_box === '/INVITE') {
     const friend = prompt('Enter friend username to invite:')?.trim();
-    if (!friend) return;
+    if (!friend) {
+      input.disabled = false;
+      way.disabled = false;
+      way.classList.remove('loading');
+      return;
+    }
     try {
       const response = await fetch(`/initiate?user=${encodeURIComponent(user)}&to=${encodeURIComponent(friend)}&mode=text`, {
         method: 'GET',
@@ -556,17 +658,31 @@ async function work() {
       alert('Failed to send invitation.');
     }
     input.value = '';
+    input.disabled = false;
+    way.disabled = false;
+    way.classList.remove('loading');
     return;
-  } else if (msg_box === '/save') {
+  } else if (msg_box === '/SAVE') {
     input.value = '';
     alert('This feature is coming soon.');
+    input.disabled = false;
+    way.disabled = false;
+    way.classList.remove('loading');
     return;
-  } else if (msg_box === '/f') {
+  } else if (msg_box === '/F') {
     const friend = prompt('Enter friend username to chat with:')?.trim();
-    if (!friend) return;
+    if (!friend) {
+      input.disabled = false;
+      way.disabled = false;
+      way.classList.remove('loading');
+      return;
+    }
     if (friend === name1) {
       alert("Oops, you can't invite yourself!");
       input.value = '';
+      input.disabled = false;
+      way.disabled = false;
+      way.classList.remove('loading');
       return;
     }
     try {
@@ -586,71 +702,90 @@ async function work() {
       alert('Failed to initiate chat.');
     }
     input.value = '';
+    input.disabled = false;
+    way.disabled = false;
+    way.classList.remove('loading');
     return;
   }
 
   if (msg_box.startsWith('/')) {
-    alert('Model-specific prompts are not supported in this version. Use /m to see details.');
+    alert('Model-specific prompts are not supported in this version. Use /M to see details.');
     input.value = '';
+    input.disabled = false;
+    way.disabled = false;
+    way.classList.remove('loading');
     return;
   }
 
-  const userMsg = {
-    type: 'msg',
-    username: user,
-    message: msg_box,
-    timestamp: new Date().toISOString()
-  };
-  addMessage(userMsg, true);
-  type.innerText = 'Typing...';
+  // Send message to server and rely on Socket.IO for display
   input.value = '';
 
   try {
-    const response = await fetch(`/msghome?user=${encodeURIComponent(user)}&name=${encodeURIComponent(name1)}&msg=${encodeURIComponent(msg_box)}`, {
+    const url = `/msghome?msg=${encodeURIComponent(msg_box)}&user=${encodeURIComponent(user)}&name=${encodeURIComponent(name1)}`;
+    const response = await fetch(url, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error(`Expected JSON, but received ${contentType || 'unknown content type'}`);
+    }
+
     const data = await response.json();
-    if (response.ok && data.reply) {
-      addMessage({
-        type: 'msg',
-        username: 'Hina',
-        message: data.reply,
-        timestamp: new Date().toISOString()
-      }, false);
-    } else {
-      console.error('AI error:', { status: response.status, data });
-      alert(`AI Error: ${data.error || 'Failed to get AI response.'}`);
+    if (!response.ok) {
+      throw new Error(`AI Error: ${data.error || 'Failed to get AI response.'}`);
     }
-    const response2 = await fetch('/msghome', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ msg: msg_box, user, username: user, name: name1 }),
-    });
-    const data2 = await response2.json();
-    if (response2.ok && data2.reply) {
-     /* addMessage({
-        type: 'msg',
-        username: 'Hina',
-        message: data2.reply,
-        timestamp: new Date().toISOString()
-      }, false);*/
-    } else {
-      console.error('AI error:', { status: response2.status, data: data2 });
-      alert(`AI Error: ${data2.error || 'Failed to get AI response.'}`);
-    }
+    // Message display is handled via Socket.IO 'ai message' event
   } catch (err) {
     console.error('AI fetch error:', err.message);
-    //alert('Failed to get AI response. Please check your connection.');
+    const errorMessage = document.createElement('div');
+    errorMessage.className = 'message ai';
+    errorMessage.innerHTML = '<div></div>';
+    ins.appendChild(errorMessage);
+    displayMessage(errorMessage.querySelector('div'), `Hina: ${err.message} Try again later or visit <a href="https://hina-ai.onrender.com" target="_blank" rel="noopener noreferrer">~HINA</a>`);
+    ins.scrollTo({ top: ins.scrollHeight, behavior: 'smooth' });
   } finally {
-    type.innerText = '';
+    input.disabled = false;
+    way.disabled = false;
+    way.classList.remove('loading');
+    input.focus();
   }
 }
 
-// Event listeners
 way.addEventListener('click', work);
 input.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') work();
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    work();
+  }
 });
+
+// Handle sliding navbar and input box on mobile
+let lastScrollTop = 0;
+const navbar = document.querySelector('.navbar');
+const chatInput = document.querySelector('.chat-input');
+const chatMessages = document.querySelector('.chat-messages');
+
+// Only apply sliding behavior on mobile (screen width <= 768px)
+const isMobile = window.matchMedia("(max-width: 768px)").matches;
+
+if (isMobile) {
+  chatMessages.addEventListener('scroll', () => {
+    let scrollTop = chatMessages.scrollTop;
+
+    if (scrollTop > lastScrollTop) {
+      // Scrolling down - hide navbar and input
+      navbar.style.transform = 'translateY(-100%)';
+      chatInput.style.transform = 'translateY(100%)';
+    } else {
+      // Scrolling up - show navbar and input
+      navbar.style.transform = 'translateY(0)';
+      chatInput.style.transform = 'translateY(0)';
+    }
+
+    lastScrollTop = scrollTop <= 0 ? 0 : scrollTop; // Prevent negative scroll
+  });
+}
 
 initSocket();

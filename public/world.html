@@ -1,25 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
-      <link rel="icon" type="image/png" href="/hina">
-
+  <link rel="icon" type="image/png" href="/hina">
+  <link rel="stylesheet" href="/css/home.css">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="navbar.css">
+  <link rel="stylesheet" href="/css/world.css">
   <title>~HINA</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
- <link rel="stylesheet" href="tick.css">
- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
-<link rel="stylesheet" href="tick.css">
-<link rel="stylesheet" href="/path/to/fontawesome/css/all.min.css" />
- 
+</head>
 <body>
   <div class="chat-container">
-    <!-- Enhanced Navbar with Animations -->
-    <nav class="navbar" style="animation: slideIn 0.5s ease-out;">
-      <div class="logo" style="display: flex; align-items: center; transition: transform 0.3s ease;">
-        <span style="color: var(--accent); font-size: 1.8rem; margin-right: 5px;">~HINA</span>AI
+    <!-- Navbar -->
+    <nav class="navbar">
+      <div class="logo">
+        <span>~HINA</span>AI
       </div>
       <input type="checkbox" id="menu-toggle">
       <label for="menu-toggle" class="hamburger">
@@ -28,87 +23,59 @@
         <span></span>
       </label>
       <ul class="nav-links">
-        <li><a href="/home" class="nav-link"
-            style="display: flex; align-items: center; gap: 5px; transition: transform 0.2s ease;"><span>🏠</span>Home</a>
+        <li><a href="/home" class="nav-link"><span>🏠</span>Home</a></li>
+        <li><a href="/world" class="nav-link"><span>🌐</span>World-Chats</a></li>
+        <li><a href="/aboutme" class="nav-link"><span>ℹ️</span>About</a></li>
+        <li><a href="/f" class="nav-link"><span>👥</span>Friends</a></li>
+        <li><a href="/model_call" class="nav-link"><span>^_^</span>HINA!</a></li>
+        <li>
+          <button id="theme-toggle" class="theme-toggle">
+            <i class="fas fa-moon"></i>
+          </button>
         </li>
-        <li><a href="/world" class="nav-link"
-            style="display: flex; align-items: center; gap: 5px; transition: transform 0.2s ease;"><span>🌐</span>World-Chats</a>
-        </li>
-        <li><a href="/aboutme" class="nav-link"
-            style="display: flex; align-items: center; gap: 5px; transition: transform 0.2s ease;"><span>ℹ️</span>About</a>
-        </li>
-        <li><a href="/f" class="nav-link"
-            style="display: flex; align-items: center; gap: 5px; transition: transform 0.2s ease;"><span>👥</span>Friends</a>
-        </li>
-        <li><a href="/model _call" class="nav-link"
-            style="display: flex; align-items: center; gap: 5px; transition: transform 0.2s ease;"><span>^_^</span>HINA!</a></li>
       </ul>
     </nav>
-    <!-- Header -->
-    <div class="chat-header">
-      World-Chats
-      <button class="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
-    </div>
-
-    <!-- Chat body -->
-    <div class="chat-messages" id="here">
-      <div class="notification" style="
-        background-color: var(--notification-bg);
-        color: var(--notification-text);
-        padding: 8px 15px;
-        border-radius: 15px;
-        font-size: 0.9rem;
-        text-align: center;
-        align-self: center;
-        margin: 10px 0;
-        animation: fadeIn 0.3s ease;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        display: inline-block;
-      "><span id="join"></span></div>
-    </div>
-    <div class="chat-typing">
-      <div class="bubble"><span id="type"></span></div>
-    </div>
-    <!-- Input bar -->
-    <div class="chat-input">
-      <input type="text" id="take" placeholder="Type a message..." />
-      <button id="btn">Send</button>
+    <!-- Main Chat Area -->
+    <div class="main-chat">
+      <!-- Chat messages -->
+      <div class="chat-messages" id="here">
+        <div class="notification" id="join"></div>
+      </div>
+      <!-- Input bar at the bottom -->
+      <div class="chat-input">
+        <input type="text" id="take" placeholder="Type a message..." />
+        <button id="btn"><i class="fas fa-paper-plane"></i></button>
+      </div>
     </div>
   </div>
   <script>
-    const themes = ['light', 'dark', 'blue'];
-    let currentThemeIndex = 0;
-
-    // Load theme from localStorage if available
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme && themes.includes(savedTheme)) {
-      currentThemeIndex = themes.indexOf(savedTheme);
-      document.documentElement.setAttribute('data-theme', savedTheme);
-    } else {
-      document.documentElement.setAttribute('data-theme', themes[currentThemeIndex]);
-    }
-
-    function toggleTheme() {
-      currentThemeIndex = (currentThemeIndex + 1) % themes.length;
-      const newTheme = themes[currentThemeIndex];
-      document.documentElement.setAttribute('data-theme', newTheme);
-      localStorage.setItem('theme', newTheme);
-    }
-
-    // Navbar animations
+    // Theme Toggle
     document.addEventListener('DOMContentLoaded', () => {
+      const themeToggle = document.getElementById('theme-toggle');
+      const body = document.body;
+      const savedTheme = localStorage.getItem('theme') || 'light';
+      body.classList.add(savedTheme + '-mode');
+      themeToggle.innerHTML = savedTheme === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+
+      themeToggle.addEventListener('click', () => {
+        const currentTheme = body.classList.contains('dark-mode') ? 'dark' : 'light';
+        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+        body.classList.remove(currentTheme + '-mode');
+        body.classList.add(newTheme + '-mode');
+        localStorage.setItem('theme', newTheme);
+        themeToggle.innerHTML = newTheme === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+      });
+
       const logo = document.querySelector('.logo');
       const navLinks = document.querySelectorAll('.nav-link');
 
-      // Logo hover effect
       logo.addEventListener('mouseenter', () => {
-        logo.style.transform = 'scale(1.1)';
+        logo.style.transform = 'scale(1.05)';
       });
       logo.addEventListener('mouseleave', () => {
         logo.style.transform = 'scale(1)';
       });
 
-      // Nav links hover effect
       navLinks.forEach(link => {
         link.addEventListener('mouseenter', () => {
           link.style.transform = 'scale(1.05)';
@@ -118,15 +85,8 @@
         });
       });
     });
-
-
-
   </script>
- <!---- <script src="/js/tick.js"></script>-->
   <script defer src="js/world.js"></script>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/js/status.js"></script>
-  <!--<script src="/js/user_stat.js"></script>-->
 </body>
-
 </html>

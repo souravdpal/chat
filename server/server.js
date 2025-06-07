@@ -18,12 +18,9 @@ const app = express();
 const server = http.createServer(app);
 const port = process.env.PORT || 3000;
 
-
 const saltRounds = parseInt(process.env.SALT_ROUNDS) || 12;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data', 'json');
-const WORLD_CHAT_DIR = path.join(__dirname, '..', 'data', 'worldchat');
 const CHAT_FILE_PREFIX = path.join(DATA_DIR, 'chat_history');
-const WORLD_CHAT_FILE = path.join(WORLD_CHAT_DIR, 'worldchat.json');
 const MAX_MESSAGES_PER_FILE = parseInt(process.env.MAX_MESSAGES_PER_FILE) || 10000;
 let chatFileIndex = 0;
 
@@ -94,22 +91,6 @@ async function initChatFile() {
   }
 }
 
-// Initialize world chat file
-async function initWorldChatFile() {
-  try {
-    await fs.mkdir(WORLD_CHAT_DIR, { recursive: true });
-    try {
-      await fs.access(WORLD_CHAT_FILE);
-    } catch {
-      await fs.writeFile(WORLD_CHAT_FILE, JSON.stringify({ messages: [] }, null, 2));
-      logger.info(`Created new world chat file at ${WORLD_CHAT_FILE}`);
-    }
-  } catch (err) {
-    logger.error('Error initializing world chat file:', err);
-    throw err;
-  }
-}
-
 // Save AI message to JSON file (for AI chats)
 async function saveMessage(type, message) {
   if (type !== 'msg') return;
@@ -142,28 +123,6 @@ async function saveMessage(type, message) {
   }
 }
 
-// Save world chat message to JSON file
-async function saveWorldChatMessage(message) {
-  try {
-    const release = await lockfile.lock(WORLD_CHAT_FILE, { retries: 5 });
-    try {
-      let data;
-      try {
-        data = JSON.parse(await fs.readFile(WORLD_CHAT_FILE));
-      } catch {
-        data = { messages: [] };
-      }
-      data.messages = data.messages || [];
-      data.messages.push(message);
-      await fs.writeFile(WORLD_CHAT_FILE, JSON.stringify(data, null, 2));
-    } finally {
-      await release();
-    }
-  } catch (err) {
-    logger.error('Error saving world chat message:', err);
-  }
-}
-
 // Get AI chat history
 async function getChatHistory(type, user1) {
   if (type !== 'msg') return [];
@@ -188,19 +147,6 @@ async function getChatHistory(type, user1) {
   }
 }
 
-// Get world chat history
-async function getWorldChatHistory() {
-  try {
-    const data = JSON.parse(await fs.readFile(WORLD_CHAT_FILE));
-    if (Array.isArray(data.messages)) {
-      return data.messages.slice(-1000); // Limit to last 1000 messages
-    }
-    return [];
-  } catch (err) {
-    logger.error('Error reading world chat history:', err);
-    return [];
-  }
-}
 app.set('trust proxy', 1);
 // CORS configuration
 const io = new Server(server, {
@@ -225,12 +171,14 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '..', 'public'), { extensions: ['html'] }));
-app.use(express.static(path.join(__dirname, '..', 'assets', 'images'), { extensions: ['png' , 'ico'] }));
+app.use(express.static(path.join(__dirname, '..', 'public'), { extensions: ['css'] }));
+app.use(express.static(path.join(__dirname, '..', 'public'), { extensions: ['js'] }));
+app.use(express.static(path.join(__dirname, '..', 'assets', 'images'), { extensions: ['png', 'ico'] }));
 
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 200,
 });
 app.use('/msghome', limiter);
 app.use('/wiki_cmd', limiter);
@@ -238,7 +186,7 @@ app.use('/wiki_cmd', limiter);
 // API Key Authentication Middleware (not used in /api/hina)
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 50,
+  max: 10,
 });
 
 const authenticateApiKey = async (req, res, next) => {
@@ -294,6 +242,10 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'welcome.html'));
 });
 
+app.get('/hina.ai', (req, res) => {
+  res.redirect('https://souravdpal.github.io/-Profile');
+});
+
 // MongoDB connection
 async function connectMongoDB() {
   const maxRetries = 5;
@@ -308,12 +260,13 @@ async function connectMongoDB() {
       logger.error(`MongoDB connection attempt ${retries} failed:`, err);
       if (retries === maxRetries) {
         logger.error('Max MongoDB connection retries reached. Server will continue without MongoDB.');
-        return; // Continue without exiting
+        return;
       }
       await new Promise((resolve) => setTimeout(resolve, 5000));
     }
   }
 }
+
 // User Schema
 const userSchema = new mongoose.Schema(
   {
@@ -398,6 +351,7 @@ app.post(
   }
 );
 
+// Modified /msghome endpoint to emit messages via Socket.IO
 app.get('/msghome', async (req, res) => {
   const { msg, user, name } = req.query;
   if (!msg || !user) {
@@ -409,6 +363,24 @@ app.get('/msghome', async (req, res) => {
     logger.info(`GET /msghome response for "${msg}" by ${user}: ${reply}`);
     const message = { message: msg, reply, timestamp: new Date().toISOString(), username: user };
     await saveMessage('msg', message);
+    
+    // Emit user message and AI reply to the sender's socket
+    const userSocketId = userSocketMap.get(user);
+    if (userSocketId) {
+      io.to(userSocketId).emit('ai message', {
+        type: 'msg',
+        username: user,
+        message: msg,
+        timestamp: message.timestamp
+      });
+      io.to(userSocketId).emit('ai message', {
+        type: 'msg',
+        username: 'Hina',
+        message: reply,
+        timestamp: message.timestamp
+      });
+    }
+    
     res.json({ reply });
   } catch (err) {
     logger.error(`GET /msghome error: ${err.message}`);
@@ -461,13 +433,8 @@ app.get('/chat_history', async (req, res) => {
       res.status(500).json({ error: 'Failed to fetch chat history' });
     }
   } else if (type === 'worldchat') {
-    try {
-      const messages = await getWorldChatHistory();
-      res.json({ messages });
-    } catch (err) {
-      logger.error(`Error fetching world chat history:`, err);
-      res.status(500).json({ error: 'Failed to fetch world chat history' });
-    }
+    // Return empty array for world chat as it's not stored
+    res.json({ messages: [] });
   } else {
     return res.status(400).json({ error: 'Type must be "msg" (with user1) or "worldchat"' });
   }
@@ -542,14 +509,8 @@ app.post(
         if (!sender) {
           return res.status(400).json({ error: `${from} not found` });
         }
-        const socket = io('https://hina-ai.onrender.com', {
-          transports: ['polling'], // Force polling to bypass WebSocket issues
-          reconnectionAttempts: 10,
-          reconnectionDelay: 1000,
-          extraHeaders: {
-            'ngrok-skip-browser-warning': 'true',
-          },
-        }); await User.updateOne({ user: to }, { $addToSet: { f: from }, $pull: { fr_await: from } });
+        await User.updateOne({ user: to }, { $addToSet: { f: from }, $pull: { fr_await: from } });
+        await User.updateOne({ user: from }, { $addToSet: { f: to } });
         const recipientSocketId = userSocketMap.get(to);
         if (recipientSocketId) {
           io.to(recipientSocketId).emit('friendRequestAccepted', { from });
@@ -726,16 +687,15 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('world message', async ({ username, message, timestamp }) => {
+  socket.on('world message', ({ username, message, timestamp }) => {
     if (!username || !message || !timestamp) {
       socket.emit('error', { message: 'Invalid world message data' });
       return;
     }
     const messageData = { username, message, timestamp };
-    await saveWorldChatMessage(messageData);
     logger.info(`World message from ${username}: ${message}`);
-    // Notify all clients to refresh their chat
-    io.emit('new world message');
+    // Broadcast message to all clients without saving
+    io.emit('world message', messageData);
   });
 
   socket.on('chat message2', ({ user }) => {
@@ -850,7 +810,6 @@ io.on('connection', (socket) => {
 });
 
 // Graceful shutdown
-// Graceful shutdown
 const gracefulShutdown = async () => {
   logger.info('Starting graceful shutdown...');
   try {
@@ -881,16 +840,9 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // Start server
-//startServer();
-process.on('SIGTERM', gracefulShutdown);
-process.on('SIGINT', gracefulShutdown);
-
-// Start server
-// Start server
 async function startServer() {
   try {
     await initChatFile();
-    await initWorldChatFile();
     await connectMongoDB();
     server.listen(port, '0.0.0.0', () => {
       logger.info(`Server running on http://0.0.0.0:${port}`);
@@ -916,27 +868,4 @@ async function startServer() {
   }
 }
 
-// Handle uncaught errors
-process.on('uncaughtException', (err) => {
-  logger.error('Uncaught Exception:', err.stack);
-  console.error('Uncaught Exception:', err.message);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  console.error('Unhandled Rejection:', reason);
-});
-
-
-// Handle uncaught errors
-process.on('uncaughtException', (err) => {
-  logger.error('Uncaught Exception:', err.stack);
-  console.error('Uncaught Exception:', err.message);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  console.error('Unhandled Rejection:', reason);
-});
-
-startServer()
+startServer();

@@ -20,30 +20,39 @@ const verifiedUsers = ['~hina', '~sourav'];
 // Replace {user} or {users} with name1, and {{//any_word}} with a link to home.html
 function filterPlaceholders(text) {
   if (!text || typeof text !== 'string') return '';
+  
   const username = name1 || 'Unknown';
+
+  // Replace {user} or {users}
   let result = text.replace(/{users?}/gi, username);
+
+  // Replace {{//text//}} → link to /home
   result = result.replace(/\{\{\/\/([^\}]+)\}\}/g, (match, p1) => {
-    const sanitizedText = p1.replace(/[<>&"']/g, (char) => ({
-      '<': '<',
-      '>': '>',
-      '&': '&',
-      '"': '"',
-      
-    })[char]);
-    return `<a href="/home" target="_blank">${sanitizedText}</a>`;
-  });
-   result = result.replace(/\/\/(.*?)\/\//g, (match, p1) => {
     const sanitizedText = p1.replace(/[<>&"']/g, (char) => ({
       '<': '&lt;',
       '>': '&gt;',
       '&': '&amp;',
       '"': '&quot;',
       "'": '&#39;'
-    })[char]);
+    })[char] || char);
+    return `<a href="/home" target="_blank">${sanitizedText}</a>`;
+  });
+
+  // Replace //text// → link to /f
+  result = result.replace(/\/\/(.*?)\/\//g, (match, p1) => {
+    const sanitizedText = p1.replace(/[<>&"']/g, (char) => ({
+      '<': '&lt;',
+      '>': '&gt;',
+      '&': '&amp;',
+      '"': '&quot;',
+      "'": '&#39;'
+    })[char] || char);
     return `<a href="/f" target="_blank">${sanitizedText}</a>`;
   });
+
   return result;
 }
+
 
 // Render username with verified badge if applicable
 function renderUsername(username) {
@@ -90,16 +99,13 @@ function formatTime(date) {
   return `${hours}:${minutes} ${ampm}`;
 }
 
-// Track last message timestamp to avoid duplicates
-let lastMessageTimestamp = null;
-
 // Initialize socket and set up event listeners
 function initSocket() {
   socket.on('connect', () => {
     console.log('✅ Socket connected:', socket.id);
     socket.emit('auth', { user });
     fetchFriendRequests();
-    fetchChatHistory();
+    // No need to fetch chat history on connect since world chat is not persistent
     startPolling(); // Start polling as fallback
   });
 
@@ -107,7 +113,7 @@ function initSocket() {
     console.log(`✅ Reconnected after ${attempt} attempts`);
     socket.emit('auth', { user });
     fetchFriendRequests();
-    fetchChatHistory();
+    // No need to fetch chat history on reconnect
     startPolling();
   });
 
@@ -125,9 +131,16 @@ function initSocket() {
     alert(`${from} has accepted your friend request!`);
   });
 
-  socket.on('new world message', () => {
-    console.log('New world message received, fetching chat history...');
-    fetchChatHistory();
+  socket.on('world message', (msg) => {
+    console.log('New world message received:', msg);
+    showMessage(
+      {
+        sender: msg.username,
+        text: msg.message,
+        timestamp: msg.timestamp,
+      },
+      msg.username === user ? 'user' : 'other'
+    );
   });
 
   socket.on('incomingRequest', ({ from, mode }) => {
@@ -145,7 +158,7 @@ function initSocket() {
   });
 }
 
-// Fetch world chat history
+// Fetch world chat history (returns empty due to no persistence)
 async function fetchChatHistory() {
   try {
     const response = await fetch('/chat_history?type=worldchat', {
@@ -154,23 +167,8 @@ async function fetchChatHistory() {
     });
     const data = await response.json();
     if (response.ok && Array.isArray(data.messages)) {
-      const newMessages = lastMessageTimestamp
-        ? data.messages.filter((msg) => new Date(msg.timestamp) > new Date(lastMessageTimestamp))
-        : data.messages;
-      if (newMessages.length > 0) {
-        lastMessageTimestamp = newMessages[newMessages.length - 1].timestamp;
-      }
-      newMessages.forEach((msg) => {
-        console.log('[fetchChatHistory] Message:', msg);
-        showMessage(
-          {
-            sender: msg.username,
-            text: msg.message,
-            timestamp: msg.timestamp,
-          },
-          msg.username === user ? 'user' : 'other'
-        );
-      });
+      // No messages expected since world chat is not persistent
+      console.log('World chat history (empty):', data.messages);
     } else {
       console.error('Invalid world chat history response:', data);
     }
@@ -188,12 +186,12 @@ function addFriendRequest(fr1) {
   const rejectId = `reject-${fr1.replace(/\s+/g, '_')}`;
 
   ins.innerHTML += `
-    <div class="cleaner" id="${requestId}" style="margin-bottom: 5px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; background-color: rgb(250, 250, 250);">
-      <div class="friend-request" style="display: flex; align-items: center; justify-content: space-between; color: #333;">
+    <div class="cleaner" id="${requestId}">
+      <div class="friend-request">
         <span><strong>${fr1}</strong> sent you a friend request.</span>
         <div>
-          <button class="btn-accept" id="${acceptId}" style="background-color: #4CAF50; color: white; padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; margin-right: 5px;">Accept</button>
-          <button class="btn-reject" id="${rejectId}" style="background-color: #f44336; color: white; padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer;">Reject</button>
+          <button class="btn-accept" id="${acceptId}">Accept</button>
+          <button class="btn-reject" id="${rejectId}">Reject</button>
         </div>
       </div>
     </div>
