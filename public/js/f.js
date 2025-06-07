@@ -153,7 +153,7 @@ addBtn.addEventListener('click', () => {
   })
     .then((res) => res.json())
     .then((data) => {
-      alert(data.message || 'Friend request sent!');
+      alert(data.message || 'Friend request sent!' || data.err);
       frInput.value = '';
       fetchFriends();
     })
