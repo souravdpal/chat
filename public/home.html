@@ -2,57 +2,95 @@
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>~HINA</title>
-    <link rel="icon" type="image/png" href="/hina">
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>~HINA BY SOURAV</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/monokai.min.css">
   <link rel="stylesheet" href="/css/home.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-  <link rel="stylesheet" href="/css/world.css" />
+  <style>
+    .scroll-btn {
+      position: fixed;
+      right: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #6c63ff;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      font-size: 1.1rem;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      z-index: 1000;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .scroll-btn:hover {
+      background: #574ede;
+      transform: translateY(-50%) scale(1.1);
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.hljs) hljs.highlightAll();
+    });
+  </script>
 </head>
 
-<body class="light-mode">
+<body>
   <div class="chat-container">
-    <!-- Navbar -->
     <nav class="navbar">
-      <a href="#" class="logo"><span>~HINA</span> BY SOURAV</a>
-      <div>
-        <input type="checkbox" id="menu-toggle">
-        <label for="menu-toggle" class="hamburger">
-          <span></span>
-          <span></span>
-          <span></span>
-        </label>
+      <div class="logo">~HINA</div>
+      <button id="hamburger-toggle" class="hamburger-btn" aria-label="Toggle navigation menu">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+      </button>
+      <div class="nav-links-container">
         <ul class="nav-links">
-          <li><a href="/home" class="nav-link"><i class="fas fa-home"></i> Home</a></li>
-          <li><a href="/world" class="nav-link"><i class="fas fa-globe"></i> World-Chats</a></li>
-          <li><a href="/aboutme" class="nav-link"><i class="fas fa-info-circle"></i> About</a></li>
-          <li><a href="/f" class="nav-link"><i class="fas fa-users"></i> Friends</a></li>
-          <li><a href="/model _call" class="nav-link"><i class="fas fa-robot"></i> HINA!</a></li>
+          <li><a href="/home" class="nav-link active">Home</a></li>
+          <li><a href="/world" class="nav-link">World-Chats</a></li>
+          <li><a href="/aboutme" class="nav-link">About</a></li>
+          <li><a href="/f" class="nav-link">Friends</a></li>
+          <li><a href="/model _call" class="nav-link">HINA!</a></li>
         </ul>
-        <button class="theme-toggle" id="themeToggleBtn" aria-label="Toggle theme"><i class="fas fa-moon"></i></button>
+      </div>
+      <div class="chat-controls">
+        <button id="themeToggleBtn" aria-label="Toggle dark mode">
+          <i class="fas fa-moon"></i>
+        </button>
+        <button id="voiceToggleBtn" aria-label="Enable auto text-to-speech" title="Toggle auto TTS for Hina's messages">
+          <i class="fas fa-microphone"></i>
+        </button>
+        <select id="voiceSelect" aria-label="Select Hina's voice" title="Choose voice for Hina's messages">
+          <option value="">Select a voice</option>
+        </select>
       </div>
     </nav>
 
-    <!-- Main chat area -->
-    <main class="main-chat">
-      <div class="chat-messages" id="here" role="log" aria-live="polite">
-        <div class="notification" id="join"></div>
+    <div class="main-chat">
+      <div class="chat-messages" id="here"></div>
+      <button id="scrollBtn" class="scroll-btn" aria-label="Scroll to bottom" title="Scroll to bottom">
+        <i class="fas fa-arrow-down"></i>
+      </button>
+      <div class="chat-input">
+        <div class="chat-input-container">
+          <input type="text" id="take" placeholder="Type a message or / for commands..." aria-label="Chat input">
+          <button id="btn" class="send-btn"><i class="fas fa-paper-plane"></i></button>
+        </div>
       </div>
-    </main>
-
-    <!-- Chat input -->
-    <div class="chat-input">
-      <input type="text" id="take" placeholder="Message HINA..." aria-label="Message input" autocomplete="off">
-      <button id="btn" onclick="work()" aria-label="Send message"><i class="fas fa-paper-plane"></i></button>
     </div>
+    <div class="notification" id="join"></div>
   </div>
 
-  <script defer src="/socket.io/socket.io.js"></script>
-  <script defer src="/js/home.js"></script>
-  <script src="/js/scroll.js"></script>
+  <script src="/js/ham.js"></script>
+  <script src="/js/home.js"></script>
 </body>
 
 </html>

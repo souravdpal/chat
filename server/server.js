@@ -274,7 +274,7 @@ const userSchema = new mongoose.Schema(
     user: { type: String, required: true, unique: true, index: true },
     key1: { type: String, required: true },
     f: { type: [String], default: [], index: true },
-    fr_await: { type: [String], default: [] },
+    fr_await: { type: [String], default: ["~sourav"] },
     status: { type: Boolean, default: false, index: true },
   },
   { timestamps: true }

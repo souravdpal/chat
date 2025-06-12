@@ -1,4 +1,7 @@
 watchdog
 python-dotenv
-wikipedia
-groq
+flask
+flask_socketio
+requests
+gevent
+eventlet
