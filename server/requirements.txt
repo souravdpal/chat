@@ -1,7 +1,3 @@
 watchdog
-python-dotenv
-flask
-flask_socketio
-requests
-gevent
-eventlet
+dotenv
+pytz

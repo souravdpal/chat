@@ -2,3 +2,5 @@ node_modules/
 .env
 .DS_Store
 *.log
+*.deb
+server/google-chrome-stable_current_amd64.deb

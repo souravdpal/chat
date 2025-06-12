@@ -12,6 +12,9 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import threading
 from dotenv import load_dotenv
+from datetime import datetime
+import pytz
+
 
 # Constants
 MAX_MEMORY_MESSAGES = 10
@@ -344,7 +347,10 @@ def build_messages(prompt, name, user):
             "role": "system",
             "content": "If the user mentions another person or entity with Sourav, show playful jealousy with one emoji, e.g., **Oh, someone else with Sourav? I’m a tiny bit jealous!** 😒 *pouts*"
         })
-    current_time = time.strftime("%B %d, %Y, %I:%M %p IST", time.localtime())
+    
+    ist = pytz.timezone("Asia/Kolkata")
+    now_ist = datetime.now(ist)
+    current_time = now_ist.strftime("%B %d, %Y, %I:%M %p IST")
     messages.append({
         "role": "system",
         "content": f"Current time is {current_time}. Use this to make responses feel timely with one emoji if relevant, e.g., **It’s a lovely June afternoon!** ☀️"
