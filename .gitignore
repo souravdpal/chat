@@ -4,3 +4,4 @@ node_modules/
 *.log
 *.deb
 server/google-chrome-stable_current_amd64.deb
+*.deb
